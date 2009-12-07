@@ -21,6 +21,7 @@ To add the AOR-GLU protocol to ns-2 do the following:
   # Create a directory named aorglu in the ns-2.34 folder.
   # Copy the aorglu repository folder contents into the folder.
   # Overwrite any files in the common folder in the common folder of the repository.
+  # Add the object files of AORGLU to the Makefile.in (around line 275)
   # Goto the ns-2.34 root directory and type: "./configure && make clean && make"
   # This should compile the aorglu protocol and add "AORGLU" to the list of available routing agents in NS-2.
 
