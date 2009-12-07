@@ -4,7 +4,7 @@
 
 The AOR-GLU protocol is an enhancement of the AODV routing protocol for MANETs. The AOR-GLU attempts to optimize the route maintenance mechanism by removing the need to flood the network while executing the route repair mechanism.
 
-= Modifications =
+= Required Modifications =
   # Add a location structure to the AODV node.
   # Add a location cache with location expiration timer to the AODV node.
   # Modify the RREP packet to include the destinations current location.
@@ -12,3 +12,5 @@ The AOR-GLU protocol is an enhancement of the AODV routing protocol for MANETs. 
   # Modify the REPA packet to include the greedy field as well as implement greedy forwarding.
   # Add the hand-rule mechanism for splitting the REPA packet into two REPC packets.
   # Implement cross-edge detection scheme.
+
+= Completed Modifications =
