@@ -81,7 +81,7 @@ LIST_HEAD(aorglu_precursors, AORGLU_Precursor);
 class aorglu_rt_entry {
         friend class aorglu_rtable;
         friend class AORGLU;
-	friend class LocalRepairTimer;
+	friend class AORGLULocalRepairTimer;
  public:
         aorglu_rt_entry();
         ~aorglu_rt_entry();
