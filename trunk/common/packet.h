@@ -251,7 +251,7 @@ public:
 		if (type == PT_DSR || 
 		    type == PT_MESSAGE || 
 		    type == PT_TORA || 
-		    type == PT_AODV
+		    type == PT_AODV ||
 		    type == PT_AORGLU)
 			return ROUTING;		
 		if (type == PT_TCP || 
