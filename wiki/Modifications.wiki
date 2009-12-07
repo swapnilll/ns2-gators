@@ -6,6 +6,7 @@ The AOR-GLU protocol is an enhancement of the AODV routing protocol for MANETs. 
 
 = Required Modifications =
   # Add a location structure to the AODV node.
+  # Retrieving a node's location information from a packet.
   # Add a location cache with location expiration timer to the AODV node.
   # Modify the RREP packet to include the destinations current location.
   # Add a LUDP packet type. The LUDP packet is used to send periodic location updates from a     destination to communicating source.
@@ -14,3 +15,7 @@ The AOR-GLU protocol is an enhancement of the AODV routing protocol for MANETs. 
   # Implement cross-edge detection scheme.
 
 = Completed Modifications =
+== Add a location structure to the AODV node ==
+The MobileNode object (ns-2.34/common/MobileNode.cc;MobileNode.h) already contains getter methods for the current node location. The location of a node can be retrieved by calling 
+node->getLoc(&x, &y, &z)
+Where x, y and z are double values (see MobileNode.h for member function declarations.)
