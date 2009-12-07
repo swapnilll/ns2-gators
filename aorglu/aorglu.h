@@ -125,45 +125,45 @@ class AORGLU;
 /*
   Timers (Broadcast ID, Hello, Neighbor Cache, Route Cache)
 */
-class BroadcastTimer : public Handler {
+class AORGLUBroadcastTimer : public Handler {
 public:
-        BroadcastTimer(AORGLU* a) : agent(a) {}
+        AORGLUBroadcastTimer(AORGLU* a) : agent(a) {}
         void	handle(Event*);
 private:
         AORGLU    *agent;
 	Event	intr;
 };
 
-class HelloTimer : public Handler {
+class AORGLUHelloTimer : public Handler {
 public:
-        HelloTimer(AORGLU* a) : agent(a) {}
+        AORGLUHelloTimer(AORGLU* a) : agent(a) {}
         void	handle(Event*);
 private:
         AORGLU    *agent;
 	Event	intr;
 };
 
-class NeighborTimer : public Handler {
+class AORGLUNeighborTimer : public Handler {
 public:
-        NeighborTimer(AORGLU* a) : agent(a) {}
+        AORGLUNeighborTimer(AORGLU* a) : agent(a) {}
         void	handle(Event*);
 private:
         AORGLU    *agent;
 	Event	intr;
 };
 
-class RouteCacheTimer : public Handler {
+class AORGLURouteCacheTimer : public Handler {
 public:
-        RouteCacheTimer(AORGLU* a) : agent(a) {}
+        AORGLURouteCacheTimer(AORGLU* a) : agent(a) {}
         void	handle(Event*);
 private:
         AORGLU    *agent;
 	Event	intr;
 };
 
-class LocalRepairTimer : public Handler {
+class AORGLULocalRepairTimer : public Handler {
 public:
-        LocalRepairTimer(AORGLU* a) : agent(a) {}
+        AORGLULocalRepairTimer(AORGLU* a) : agent(a) {}
         void	handle(Event*);
 private:
         AORGLU    *agent;
@@ -198,11 +198,11 @@ class AORGLU: public Agent {
    */
 
         friend class aorglu_rt_entry;
-        friend class BroadcastTimer;
-        friend class HelloTimer;
-        friend class NeighborTimer;
-        friend class RouteCacheTimer;
-        friend class LocalRepairTimer;
+        friend class AORGLUBroadcastTimer;
+        friend class AORGLUHelloTimer;
+        friend class AORGLUNeighborTimer;
+        friend class AORGLURouteCacheTimer;
+        friend class AORGLULocalRepairTimer;
 
  public:
         AORGLU(nsaddr_t id);
@@ -286,11 +286,11 @@ class AORGLU: public Agent {
         /*
          * Timers
          */
-        BroadcastTimer  btimer;
-        HelloTimer      htimer;
-        NeighborTimer   ntimer;
-        RouteCacheTimer rtimer;
-        LocalRepairTimer lrtimer;
+        AORGLUBroadcastTimer  btimer;
+        AORGLUHelloTimer      htimer;
+        AORGLUNeighborTimer   ntimer;
+        AORGLURouteCacheTimer rtimer;
+        AORGLULocalRepairTimer lrtimer;
 
         /*
          * Routing Table

@@ -158,13 +158,12 @@ AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU),
 */
 
 void
-BroadcastTimer::handle(Event*) {
+AORGLUBroadcastTimer::handle(Event*) {
   agent->id_purge();
   Scheduler::instance().schedule(this, &intr, BCAST_ID_SAVE);
 }
-
 void
-HelloTimer::handle(Event*) {
+AORGLUHelloTimer::handle(Event*) {
    agent->sendHello();
    double interval = MinHelloInterval + 
                  ((MaxHelloInterval - MinHelloInterval) * Random::uniform());
@@ -173,20 +172,20 @@ HelloTimer::handle(Event*) {
 }
 
 void
-NeighborTimer::handle(Event*) {
+AORGLUNeighborTimer::handle(Event*) {
   agent->nb_purge();
   Scheduler::instance().schedule(this, &intr, HELLO_INTERVAL);
 }
 
 void
-RouteCacheTimer::handle(Event*) {
+AORGLURouteCacheTimer::handle(Event*) {
   agent->rt_purge();
 #define FREQUENCY 0.5 // sec
   Scheduler::instance().schedule(this, &intr, FREQUENCY);
 }
 
 void
-LocalRepairTimer::handle(Event* p)  {  // SRD: 5/4/99
+AORGLULocalRepairTimer::handle(Event* p)  {  // SRD: 5/4/99
 aorglu_rt_entry *rt;
 struct hdr_ip *ih = HDR_IP( (Packet *)p);
 
