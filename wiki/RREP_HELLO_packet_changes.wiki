@@ -5,9 +5,10 @@ Stuff
 
 
 = Details =
- * Note: in aorglu.cc the variable index is the address of the current node
+ * Note: in aorglu.cc the variable "index" is the address of the current node
+
+The following changes were made to RREP packet header in aorglu_packet.h. The parameters rp_x, rp_y and rp_z (all doubles) were added to the packet header struct hdr_aorglu_reply. Also, the new parameters were added to the packet header size calculation.
 {{{
-Changes to RREP packet header:
 struct hdr_aorglu_reply {
         u_int8_t   rp_type;         // Packet Type
         u_int8_t   reserved[2];
@@ -42,4 +43,30 @@ struct hdr_aorglu_reply {
   }
 
 };
+}}}
+
+The following lines of code were added to the sendReply(...) function in aorglu.cc.  The purpose of this was to add the coordinates of the original sending node to the RREP packet header. First the MobileNode object is retrieved from the node address (index). Then the RREP packet header information is updated.
+{{{
+  //csh - Get the x and y coordinates from the current node
+  //and add them to the packet header.
+  MobileNode *currNode = (MobileNode*) Node::get_node_by_address(index);
+  rp->rp_x = currNode->X();
+  rp->rp_y = currNode->Y();
+  rp->rp_z = currNode->Z();
+}}}
+
+The following lines of code were added to the recvReply(...) function in aorglu.cc.  The purpose of this was to print out the address and coordinates of the original node that sent the RREP. The address is taken from the IP packet header (ih->saddr()) and not the RREP packet header (rp->rp_src) which only provides the address of the one-hop previous node.
+{{{
+ /*
+  * If reply is for me, discard it.
+  */
+
+if(ih->daddr() == index || suppress_reply) {
+   //csh - print out coordinates when reply is received
+#ifdef DEBUG
+   fprintf(stderr, "The current node address is %d\n", index);
+   fprintf(stderr, "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
+#endif //DEBUG
+   Packet::free(p);
+ }
 }}}
