@@ -1,12 +1,17 @@
 #summary Changes made to the RREP and HELLO packets
 = Introduction =
 
-Stuff
-
+* Note: in aorglu.cc the variable "index" is the address of the current node
+* Modified files aorglu.cc and aorglu_packet.h
+* Changes:
+# Added coordinate variables to the RREP packet header, hdr_aorglu_reply struct, in aorglu_packets.h
+# Included node.h and mobilenode.h to aorglu.cc
+# Modified the sendReply(...) function to write the original sending node's coordinates to the RREP packet header. (aorglu.cc)
+# Modified the sendHello() function to write the sending nodes coordinates to the packet header (aorglu.cc)
+# Added debug outputs to recvReply(...) and recvHello(...) to print out the coordinates once the RREP and HELLO packets are received. (aorglu.cc)
 
 = Details =
- * Note: in aorglu.cc the variable "index" is the address of the current node
-
+ 
 The following changes were made to RREP packet header in aorglu_packet.h. The parameters rp_x, rp_y and rp_z (all doubles) were added to the packet header struct hdr_aorglu_reply. Also, the new parameters were added to the packet header size calculation.
 {{{
 struct hdr_aorglu_reply {
@@ -45,6 +50,17 @@ struct hdr_aorglu_reply {
 };
 }}}
 
+node.h and mobilenode.h were included in aorglu.cc
+{{{
+#include <aorglu/aorglu.h>
+#include <aorglu/aorglu_packet.h>
+#include <random.h>
+#include <mobilenode.h>
+#include <node.h>
+#include <cmu-trace.h>
+//#include <energy-model.h>
+}}}
+
 The following lines of code were added to the sendReply(...) function in aorglu.cc.  The purpose of this was to add the coordinates of the original sending node to the RREP packet header. First the MobileNode object is retrieved from the node address (index). Then the RREP packet header information is updated.
 {{{
   //csh - Get the x and y coordinates from the current node
@@ -69,4 +85,40 @@ if(ih->daddr() == index || suppress_reply) {
 #endif //DEBUG
    Packet::free(p);
  }
+}}}
+
+The following lines of code were added to the sendHello() function in aorglu.cc
+{{{
+  //csh - Get the x and y coordinates from the current node
+  //and add them to the packet header.
+  MobileNode *currNode = (MobileNode*) Node::get_node_by_address(index);
+  rh->rp_x = currNode->X();
+  rh->rp_y = currNode->Y();
+  rh->rp_z = currNode->Z();
+}}}
+
+The recvHello(...) function in aorglu.cc was modified in the following manner:
+{{{
+AORGLU::recvHello(Packet *p) {
+struct hdr_ip *ih = HDR_IP(p); //csh - uncommented ip header to allow access to sending node address.
+struct hdr_aorglu_reply *rp = HDR_AORGLU_REPLY(p);
+AORGLU_Neighbor *nb;
+
+ nb = nb_lookup(rp->rp_dst);
+ if(nb == 0) {
+   nb_insert(rp->rp_dst);
+ }
+ else {
+   nb->nb_expire = CURRENT_TIME +
+                   (1.5 * ALLOWED_HELLO_LOSS * HELLO_INTERVAL);
+ }
+
+   //csh - print out coordinates when reply is received
+#ifdef DEBUG
+   fprintf(stderr, "The current node address is %d\n", index);
+   fprintf(stderr, "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
+#endif //DEBUG
+
+ Packet::free(p);
+}
 }}}
