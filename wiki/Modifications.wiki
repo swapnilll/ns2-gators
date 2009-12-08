@@ -20,8 +20,8 @@ The AOR-GLU protocol is an enhancement of the AODV routing protocol for MANETs. 
 To add the AOR-GLU protocol to ns-2 do the following:
   # Create a directory named aorglu in the ns-2.34 folder.
   # Copy the aorglu repository folder contents into the folder.
-  # Overwrite any files in the common folder in the common folder of the repository.
-  # Add the object files of AORGLU to the Makefile.in (around line 275)
+  # Replace any files needed from the "tcl/lib", "queue" "trace" folders.
+  # Overwrite the Makefile.in with the repository Makefile.in.
   # Goto the ns-2.34 root directory and type: "./configure && make clean && make"
   # This should compile the aorglu protocol and add "AORGLU" to the list of available routing agents in NS-2.
 
