@@ -115,6 +115,9 @@ struct hdr_aorglu_reply {
         nsaddr_t        rp_dst;                 // Destination IP Address
         u_int32_t       rp_dst_seqno;           // Destination Sequence Number
         nsaddr_t        rp_src;                 // Source IP Address
+	double		rp_x;			// csh - X coordinate of node sending reply
+	double		rp_y;			// csh - Y coordinate of node sending reply
+	double		rp_z;			// csh - Z coordinate of node sending reply
         double	        rp_lifetime;            // Lifetime
 
         double          rp_timestamp;           // when corresponding REQ sent;
@@ -122,7 +125,7 @@ struct hdr_aorglu_reply {
 						
   inline int size() { 
   int sz = 0;
-  /*
+  
   	sz = sizeof(u_int8_t)		// rp_type
 	     + 2*sizeof(u_int8_t) 	// rp_flags + reserved
 	     + sizeof(u_int8_t)		// rp_hop_count
@@ -130,9 +133,11 @@ struct hdr_aorglu_reply {
 	     + sizeof(nsaddr_t)		// rp_dst
 	     + sizeof(u_int32_t)	// rp_dst_seqno
 	     + sizeof(nsaddr_t)		// rp_src
-	     + sizeof(u_int32_t);	// rp_lifetime
-  */
-  	sz = 6*sizeof(u_int32_t);
+	     + sizeof(u_int32_t)	// rp_lifetime
+	     + sizeof(double)		// rp_x (csh)
+	     + sizeof(double)		// rp_y (csh)
+	     + sizeof(double);		// rp_z (csh)
+  
   	assert (sz >= 0);
 	return sz;
   }
