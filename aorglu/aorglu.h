@@ -52,7 +52,8 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
   Allows AORGLU to use link-layer (802.11) feedback in determining when
   links are up/down.
 */
-#define AORGLU_LINK_LAYER_DETECTION
+//#define AORGLU_LINK_LAYER_DETECTION
+/*Need to enable HELLO packets*/
 
 /*
   Causes AORGLU to apply a "smoothing" function to the link layer feedback
