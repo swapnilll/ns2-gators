@@ -5,8 +5,8 @@
 The AOR-GLU protocol is an enhancement of the AODV routing protocol for MANETs. The AOR-GLU attempts to optimize the route maintenance mechanism by removing the need to flood the network while executing the route repair mechanism.
 
 = Required Modifications =
-  # Adding the aor-glu routing protocol to NS-2. COMPLETE
-  # Add a location structure to the AODV node. COMPLETE
+  # *COMPLETE* Adding the aor-glu routing protocol to NS-2.
+  # *COMPLETE* Add a location structure to the AODV node.
   # Retrieving a node's location information from a packet.
   # Add a location cache with location expiration timer to the AODV node.
   # Modify the RREP packet to include the destinations current location.
