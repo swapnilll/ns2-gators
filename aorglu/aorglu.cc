@@ -33,6 +33,8 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #include <aorglu/aorglu.h>
 #include <aorglu/aorglu_packet.h>
 #include <random.h>
+#include <mobilenode.h>
+#include <node.h>
 #include <cmu-trace.h>
 //#include <energy-model.h>
 
@@ -761,7 +763,7 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
 
    sendReply(rq->rq_src,           // IP Destination
              1,                    // Hop Count
-             index,                // Dest IP Address
+             index,                // Dest IP Address (csh - index is the addr of the current node)
              seqno,                // Dest Sequence Num
              MY_ROUTE_TIMEOUT,     // Lifetime
              rq->rq_timestamp);    // timestamp
@@ -906,6 +908,11 @@ if (ih->daddr() == index) { // If I am the original source
   */
 
 if(ih->daddr() == index || suppress_reply) {
+   //csh - print out coordinates when reply is received
+#ifdef DEBUG
+   fprintf(stderr, "The current node address is %d\n", index);
+   fprintf(stderr, "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
+#endif //DEBUG
    Packet::free(p);
  }
  /*
@@ -1183,6 +1190,7 @@ aorglu_rt_entry *rt = rtable.rt_lookup(dst);
 
 }
 
+//csh - definition of sendReply function
 void
 AORGLU::sendReply(nsaddr_t ipdst, u_int32_t hop_count, nsaddr_t rpdst,
                 u_int32_t rpseq, u_int32_t lifetime, double timestamp) {
@@ -1196,6 +1204,13 @@ aorglu_rt_entry *rt = rtable.rt_lookup(ipdst);
 fprintf(stderr, "sending Reply from %d at %.2f\n", index, Scheduler::instance().clock());
 #endif // DEBUG
  assert(rt);
+
+  //csh - Get the x and y coordinates from the current node
+  //and add them to the packet header.
+  MobileNode *currNode = (MobileNode*) Node::get_node_by_address(index);
+  rp->rp_x = currNode->X();
+  rp->rp_y = currNode->Y();
+  rp->rp_z = currNode->Z();
 
  rp->rp_type = AORGLUTYPE_RREP;
  //rp->rp_flags = 0x00;
@@ -1280,6 +1295,13 @@ struct hdr_aorglu_reply *rh = HDR_AORGLU_REPLY(p);
 fprintf(stderr, "sending Hello from %d at %.2f\n", index, Scheduler::instance().clock());
 #endif // DEBUG
 
+  //csh - Get the x and y coordinates from the current node
+  //and add them to the packet header.
+  MobileNode *currNode = (MobileNode*) Node::get_node_by_address(index);
+  rh->rp_x = currNode->X();
+  rh->rp_y = currNode->Y();
+  rh->rp_z = currNode->Z();
+
  rh->rp_type = AORGLUTYPE_HELLO;
  //rh->rp_flags = 0x00;
  rh->rp_hop_count = 1;
@@ -1307,7 +1329,7 @@ fprintf(stderr, "sending Hello from %d at %.2f\n", index, Scheduler::instance().
 
 void
 AORGLU::recvHello(Packet *p) {
-//struct hdr_ip *ih = HDR_IP(p);
+struct hdr_ip *ih = HDR_IP(p); //csh - uncommented ip header to allow access to sending node address.
 struct hdr_aorglu_reply *rp = HDR_AORGLU_REPLY(p);
 AORGLU_Neighbor *nb;
 
@@ -1319,6 +1341,12 @@ AORGLU_Neighbor *nb;
    nb->nb_expire = CURRENT_TIME +
                    (1.5 * ALLOWED_HELLO_LOSS * HELLO_INTERVAL);
  }
+
+   //csh - print out coordinates when reply is received
+#ifdef DEBUG
+   fprintf(stderr, "The current node address is %d\n", index);
+   fprintf(stderr, "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
+#endif //DEBUG
 
  Packet::free(p);
 }
