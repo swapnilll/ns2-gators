@@ -8,7 +8,7 @@ The AOR-GLU protocol is an enhancement of the AODV routing protocol for MANETs. 
   # *COMPLETE* Adding the aor-glu routing protocol to NS-2.
   # *COMPLETE* Add a location structure to the AODV node.
   # Retrieving a node's location information from a packet.
-  # Add a location cache with location expiration timer to the AODV node.
+  # Add a location cache with location expiration timer to the AODV node. (Robert)
   # Modify the RREP packet to include the destinations current location.
   # Add a LUDP packet type. The LUDP packet is used to send periodic location updates from a     destination to communicating source.
   # Modify the REPA packet to include the greedy field as well as implement greedy forwarding.
