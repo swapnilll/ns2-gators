@@ -5,6 +5,7 @@ Stuff
 
 
 = Details =
+ * Note: in aorglu.cc the variable index is the address of the current node
 {{{
 Changes to RREP packet header:
 struct hdr_aorglu_reply {
