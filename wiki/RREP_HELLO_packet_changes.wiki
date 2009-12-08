@@ -5,7 +5,7 @@ Stuff
 
 
 = Details =
-
+{{{
 Changes to RREP packet header:
 struct hdr_aorglu_reply {
         u_int8_t   rp_type;         // Packet Type
@@ -41,3 +41,4 @@ struct hdr_aorglu_reply {
   }
 
 };
+}}}
