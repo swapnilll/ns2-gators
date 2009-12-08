@@ -24,6 +24,8 @@ To add the AOR-GLU protocol to ns-2 do the following:
   # Overwrite the Makefile.in with the repository Makefile.in.
   # Goto the ns-2.34 root directory and type: "./configure && make clean && make"
   # This should compile the aorglu protocol and add "AORGLU" to the list of available routing agents in NS-2.
+  # Make sure to run the recently compiled NS executable *NOT* the /usr/bin/ns. This is likely an older NS version that does not contain the new AORGLU protocol.
+
 
 == Add a location structure to the AODV node ==
 The MobileNode object (ns-2.34/common/MobileNode.cc;MobileNode.h) already contains getter methods for the current node location. The location of a node can be retrieved by calling 
