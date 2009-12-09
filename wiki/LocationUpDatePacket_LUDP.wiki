@@ -4,7 +4,9 @@
 
 LUDP:
 
-  * Location updates are sent only if 1) a time of > T has expired since the last location update and 2) the current node has changed locations since the last location update.
+  * Location updates are sent only if the following are both true:
+    # a time of > T has expired since the last location update and ...
+    # the current node has changed locations since the last location update.
 
   * Location updates are sent by a destination node to all the nodes it is communicating with.
 
@@ -22,5 +24,3 @@ LUDP:
 
 
 = Details =
-
-
