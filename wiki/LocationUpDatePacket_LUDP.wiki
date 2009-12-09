@@ -8,7 +8,7 @@ LUDP:
 
   * Location updates are sent by a destination node to all the nodes it is communicating with.
 
-  * Location updates are sent with period T = R - CD/2'*'(v1-v2) where CD is the distance between a destination node D and its one-hop neighbor (in the path to the source) C. R is the transmission range of D or C (whichever is smaller). V1 and V2 are the velocities of D and C respectively.
+  * Location updates are sent with period T = R - CD/2`*`(v1-v2) where CD is the distance between a destination node D and its one-hop neighbor (in the path to the source) C. R is the transmission range of D or C (whichever is smaller). v1 and v2 are the velocities of D and C respectively.
 
   * It is required that each node can stores its own location in its location cache on a location update.
 
