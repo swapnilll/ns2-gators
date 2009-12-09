@@ -1,0 +1,14 @@
+#summary The AOR-GLU routing protocol requires a table that keeps track of the current locations of 1-hop node neighbours as well as nodes with which there has been communication. In order to facilitate this, both HELLO packets and RREQ/RREP contain location information to be stored in the receiving node's location cache.
+
+= Introduction =
+The LocationTable (aorglu_loctable class) stores location information for nodes. It will need to be updated with:
+  # The location information for nodes form which it received a RREP or RREQ.
+  # The location information of one-hop neighbours (via HELLO messages).
+
+The LocationTable will include an expiration timer that is controlled by the constant LOC_CACHE_EXP (see aorglu/aorglu.h for definition.) If this is defined as -1, the cache entries will never expire.
+
+This cache should not be confused with the ChatterCache. The ChatterCache is used for keeping track of nodes with which it has been recently communicating data with. This Cache is used to keep track of which nodes LUDP packets should be sent to to update the LocationTable.
+
+= Details =
+
+The LocationTable has been implemented in the files: _aorglu`_`loctable.h_ and _aorglu`_`loctable.cc_.
