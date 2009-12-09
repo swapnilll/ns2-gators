@@ -1,8 +1,6 @@
 #summary Contains info about LUDP requirement and the changes necessary to implement it.
 
-= Introduction =
-
-LUDP:
+= LUDP - Location UpDate Packet =
 
   * Location updates are sent only if the following are both true:
     # a time of > T has expired since the last location update and ...
@@ -18,9 +16,208 @@ LUDP:
     * its current location (compared to its position in its location cache)
     * its transmission range
     * its velocity
-    * the velocity of its 1-hop neighbor on the path to the receiving node (C)
+    * the velocity of its one-hop neighbor on the path to the receiving node (C)
     * the location of (C)
     * the transmission range of (C)
 
 
-= Details =
+= Necessary Changes (list) =
+  # Add LUDP packet header structure to aorglu_packet.h
+  # Add sendLudp(...) and recvLudp(...) function prototypes to aorglu.h
+  # Define sendLudp(...) function in aorglu.cc
+  # Define recvLudp(...) function in aorglu.cc
+  # Add code to update receiving nodes location cache
+  # Create timer to trigger sending of Location update
+
+
+= Implementation of changes =
+1.  
+{{{
+//--------- LOCATION UPDATE PACKET HEADER ---------------------
+//csh - Add LUDP packet header struct
+struct hdr_aorglu_ludp {
+        u_int8_t        lu_type;        // Packet Type
+        nsaddr_t        lu_dst;         // Destination IP Address
+        nsaddr_t        lu_src;         // Source IP Address
+	double		lu_x;		// X coordinate of node sending reply
+	double		lu_y;		// Y coordinate of node sending reply
+	double		lu_z;		// Z coordinate of node sending reply
+						
+  inline int size() { 
+  int sz = 0;
+  
+  	sz = sizeof(u_int8_t)		// lu_type
+	     + sizeof(nsaddr_t)		// lu_dst
+	     + sizeof(nsaddr_t)		// lu_src
+	     + sizeof(double)		// lu_x
+	     + sizeof(double)		// lu_y
+	     + sizeof(double);		// lu_z
+  
+  	assert (sz >= 0);
+	return sz;
+  }
+
+};
+//--------------------------------------------------------------
+}}}
+
+2.
+{{{
+        /*
+         * csh - LUDP functions
+         */
+	void		sendLudp();
+	void		recvLudp(Packet *p);
+}}}
+
+3.
+{{{
+//------ sendLudp(...) function definition --------------------------//
+//csh
+void
+AORGLU::sendLudp() {
+//will need to allocate packets for each node I am sending to and just change the destination address
+Packet *p = Packet::alloc();
+struct hdr_cmn *ch = HDR_CMN(p);
+struct hdr_ip *ih = HDR_IP(p);
+struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
+aorglu_rt_entry *rt = rtable.rt_lookup(ipdst);
+
+#ifdef DEBUG
+fprintf(stderr, "sending LUDP from %d at %.2f\n", index, Scheduler::instance().clock());
+#endif // DEBUG
+ assert(rt);
+
+  //csh - Get the x, y, and z coordinates from the current node
+  //and add them to the packet header.
+  MobileNode *currNode = (MobileNode*) Node::get_node_by_address(index);
+  lu->lu_x = currNode->X();
+  lu->lu_y = currNode->Y();
+  lu->lu_z = currNode->Z();
+
+ //update LUDP packet header info
+ lu->lu_type = AORGLUTYPE_LUDP;
+ lu->lu_dst = ipdst; //same as ludst
+ lu->lu_src = index;
+   
+ //update common header info
+ ch->ptype() = PT_AORGLU;
+ ch->size() = IP_HDR_LEN + lu->size();
+ ch->iface() = -2;
+ ch->error() = 0;
+ ch->addr_type() = NS_AF_INET;
+ ch->next_hop_ = rt->rt_nexthop;
+ ch->prev_hop_ = index;          // AORGLU hack
+ ch->direction() = hdr_cmn::DOWN;
+
+ //update the IP packet header info
+ ih->saddr() = index;
+ ih->daddr() = ipdst;
+ ih->sport() = RT_PORT;
+ ih->dport() = RT_PORT;
+ ih->ttl_ = NETWORK_DIAMETER;
+
+ //schedule the LUDP packet to be sent
+ //NOTE: Will need to send to all nodes in the recently communicated list
+ Scheduler::instance().schedule(target_, p, 0.);
+
+}
+//-----END sendLudp(...) ---------------------------------------//
+}}}
+
+4.
+{{{
+//----- Definition of recvLudp() -------------------------------//
+void
+AORGLU::recvLudp(Packet *p) {
+struct hdr_ip *ih = HDR_IP(p);
+struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
+aorglu_rt_entry *rt;
+
+  /*
+   * Drop if the current node is the source
+   */
+
+  if(lu->lu_src == index) {
+#ifdef DEBUG
+    fprintf(stderr, "%s: got my own Location Update\n", __FUNCTION__);
+#endif // DEBUG
+    Packet::free(p);
+    return;
+  } 
+
+
+ /* 
+  * Either this is the destination, or the Location Updated must be forwarded
+  */
+ // Look up the next-hop info from the route table
+ rt = rtable.rt_lookup(lu->lu_dst);
+
+ // First check if I am the destination ..
+ if(lu->lu_dst == index) {
+
+#ifdef DEBUG
+   fprintf(stderr, "%d - %s: Location Update successfully delivered\n",
+                   index, __FUNCTION__);
+#endif // DEBUG
+
+ /*
+  *  Add location information from the sending node to the current
+  *   node's location cache here
+  */
+ 
+   // ADD CODE HERE!!!  
+
+   Packet::free(p);
+ }
+
+ /*
+  * Not the destination, so forward the Location Update.
+  */
+ else {
+   //Note: The recvReply function does stuff with the queue here before forwarding,
+   //       not sure if that should be done here as well.
+   forward(rt, p, DELAY);
+ }
+
+}
+//------END of recvLudp(...)---------------------------------------//
+
+}}}
+
+5.
+{{{
+ //NEEDS TO BE COMPLETED
+}}}
+
+6.
+{{{
+IN aorglu.h:
+
+#define LUDP_INTERVAL	3	// 3000 ms - csh
+
+//csh - added Location Update Timer prototype
+class AORGLULocationUpdateTimer : public Handler {
+public:
+        AORGLULocationUpdateTimer(AORGLU* a) : agent(a) {}
+        void	handle(Event*);
+private:
+        AORGLU    *agent;
+	Event	intr;
+};
+
+friend class AORGLULocationUpdateTimer; //csh - friend class
+
+AORGLULocationUpdateTimer	lutimer; //csh - instance of LUDP timer
+}}}
+
+{{{
+IN aorglu.cc
+
+//csh - LUDP Timer handler
+void
+AORGLULocationUpdateTimer::handle(Event*) {
+  agent->sendLudp();
+  Scheduler::instance().schedule(this, &intr, LUDP_INTERVAL);
+}
+}}}
