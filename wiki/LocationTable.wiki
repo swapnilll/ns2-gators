@@ -12,3 +12,12 @@ This cache should not be confused with the ChatterCache. The ChatterCache is use
 = Details =
 
 The LocationTable has been implemented in the files: _aorglu`_`loctable.h_ and _aorglu`_`loctable.cc_.
+
+The LocationTable is a member function called "loctable" in the AORGLU Agent. This class variable holds the location table entries for the current AORGLU node.
+
+== Available Methods ==
+  * *aorglu`_`loc_entry`*` head()*
+  * *void print()*
+  * *aorglu`_`loc_entry`*` loc_add(nsaddr`_`t id, double, double, double)*
+  * *void loc_delete(nsaddr`_`t id)*
+  * *aorglu`_`loc_entry`*` loc_lookup(nsaddr`_`t id)*
