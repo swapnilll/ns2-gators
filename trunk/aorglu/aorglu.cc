@@ -1369,7 +1369,6 @@ fprintf(stderr, "sending Reply from %d at %.2f\n", index, Scheduler::instance().
 //csh
 void
 AORGLU::sendLudp(nsaddr_t ipdst) {
-//will need to allocate packets for each node I am sending to and just change the destination address
 Packet *p = Packet::alloc();
 struct hdr_cmn *ch = HDR_CMN(p);
 struct hdr_ip *ih = HDR_IP(p);
@@ -1381,8 +1380,9 @@ aorglu_rt_entry *rt = rtable.rt_lookup(ipdst);
 if(!rt) 
   return;
 
- fprintf(stderr, "sending LUDP from %d at %.2f\n", index, Scheduler::instance().clock());
+ fprintf(stderr, "sending LUDP from %d at %.2f", index, Scheduler::instance().clock());
  assert(rt);
+ fprintf(stderr, "...yes\n", index, Scheduler::instance().clock());
 
   //csh - Get the x, y, and z coordinates from the current node
   //and add them to the packet header.
@@ -1393,7 +1393,7 @@ if(!rt)
 
  //update LUDP packet header info
  lu->lu_type = AORGLUTYPE_LUDP;
- lu->lu_dst = ipdst; //same as ludst
+ lu->lu_dst = ipdst;
  lu->lu_src = index;
    
  //update common header info
@@ -1415,7 +1415,7 @@ if(!rt)
 
  //schedule the LUDP packet to be sent
  //NOTE: Will need to send to all nodes in the recently communicated list
-// Scheduler::instance().schedule(target_, p, 0);
+ Scheduler::instance().schedule(target_, p, 0);
 
 }
 //-----END sendLudp(...) ---------------------------------------//
@@ -1450,9 +1450,12 @@ aorglu_rt_entry *rt;
  if(lu->lu_dst == index) {
 
 #ifdef DEBUG
-   fprintf(stderr, "%d - %s: Location Update successfully delivered\n",
+   fprintf(stderr, "%d - %s: Location Update successfully received\n",
                    index, __FUNCTION__);
 #endif // DEBUG
+  
+//csh
+fprintf(stderr, "LUDP successfully received by %d\n", index);
 
  /*
   *  Add location information from the sending node to the current
@@ -1470,6 +1473,7 @@ aorglu_rt_entry *rt;
  else {
    //Note: The recvReply function does stuff with the queue here before forwarding,
    //       not sure if that should be done here as well.
+   fprintf(stderr, "LUDP packet being forwarded by %d\n", index);
    forward(rt, p, DELAY);
  }
 

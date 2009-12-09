@@ -960,6 +960,8 @@ CMUTrace::format_aorglu(Packet *p, int offset)
         struct hdr_aorglu *ah = HDR_AORGLU(p);
         struct hdr_aorglu_request *rq = HDR_AORGLU_REQUEST(p);
         struct hdr_aorglu_reply *rp = HDR_AORGLU_REPLY(p);
+	//csh - add LUDP packet here
+	struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
 
 
         switch(ah->ah_type) {
@@ -1044,6 +1046,44 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 				rp->rp_type == AORGLUTYPE_RREP ? "REPLY" :
 				(rp->rp_type == AORGLUTYPE_RERR ? "ERROR" :
 				 "HELLO"));
+		}
+                break;
+
+		//csh - add trace for LUDP packet
+		case AORGLUTYPE_LUDP:
+
+		if (pt_->tagged()) {
+		    sprintf(pt_->buffer() + offset,
+			    "-aorglu:t %x -aorglu:d %d -aorglu:s %d -aorglu:x %.2lf "
+			    "-aorglu:y %.2lf -aorglu:z %.2lf -aorglu:c LUDP ",
+			    lu->lu_type,
+                            lu->lu_dst,
+                            lu->lu_src,
+                            lu->lu_x,
+                            lu->lu_y,
+                            lu->lu_z);
+		} else if (newtrace_) {
+
+		    sprintf(pt_->buffer() + offset,
+			"-P aorglu -Pt 0x%x -Pd %d -Ps %d -Px %.2lf -Py %.2lf -Pz %.2lf LUDP ",
+			lu->lu_type,
+                        lu->lu_dst,
+                        lu->lu_src,
+                        lu->lu_x,
+                        lu->lu_y,
+                        lu->lu_z);
+
+
+		} else {
+
+		    sprintf(pt_->buffer() + offset,
+			"[0x%x %d %d (%.2lf, %.2lf, %.2lf)] (LUDP)",
+			lu->lu_type,
+                        lu->lu_dst,
+                        lu->lu_src,
+                        lu->lu_x,
+                        lu->lu_y,
+                        lu->lu_z);
 		}
                 break;
 		

@@ -127,7 +127,7 @@ class AORGLU;
 #define HELLO_INTERVAL          1               // 1000 ms
 #define ALLOWED_HELLO_LOSS      3               // packets
 #define BAD_LINK_LIFETIME       3               // 3000 ms
-#define LUDP_INTERVAL		3		// 3000 ms - csh
+#define LUDP_INTERVAL		13		// 3000 ms - csh
 #define MaxHelloInterval        (1.25 * HELLO_INTERVAL)
 #define MinHelloInterval        (0.75 * HELLO_INTERVAL)
 
@@ -346,7 +346,7 @@ class AORGLU: public Agent {
         /*
          * csh - LUDP functions
          */
-	void		sendLudp(nsaddr_t);
+	void		sendLudp(nsaddr_t ipdst);
 	void		recvLudp(Packet *p);
 
 	/*
