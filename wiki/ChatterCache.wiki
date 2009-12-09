@@ -1,0 +1,68 @@
+#summary The chatter cache is an internal node list for AOR-GLU which keeps track of nodes which are currently being communicated with.
+
+= Introduction =
+
+In order to implement LUDP packets, it is necessary to implement a cache which keeps track of nodes which an AOR-GLU node is currently communicating with. 
+
+
+= Details =
+
+== Code Modifications ==
+*aorglu.h*
+{{{
+/*
+  RGK - Chatter Cache
+  This cache keeps track of nodes to which have been
+  recently communicated.
+*/
+class ChatterEntry {
+        friend class AORGLU;
+  public:
+        ChatterEntry(nsaddr_t id) { dst = id; }
+  private:
+        LIST_ENTRY(ChatterEntry) celink;
+        nsaddr_t dst;
+        double expire;
+};
+
+LIST_HEAD(aorglu_ccache, ChatterEntry);
+}}}
+
+{{{
+       /*
+        * RGK -  Chatter Cache Management
+        */
+        void            cc_insert(nsaddr_t id);
+        bool            cc_lookup(nsaddr_t id);
+        void            cc_purge(nsaddr_t id);
+}}}
+
+{{{
+        /*RGK - Chatter Cache Head*/
+        aorglu_ccache         chead;                //Chatter Cache Head
+}}}
+
+*aorglu.cc*
+{{{
+
+/* 
+   Constructor
+*/
+/*RGK - Added loctimer to constructor list*/
+AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this),
+                          btimer(this), htimer(this), ntimer(this),
+                          rtimer(this), lrtimer(this), rqueue() {
+  index = id;
+  seqno = 2;
+  bid = 1;
+
+  LIST_INIT(&nbhead);
+  LIST_INIT(&bihead);
+
+  /*RGK - Initialize the chatter cache*/
+  LIST_INIT(&chead);
+  
+  logtarget = 0;
+  ifqueue = 0;
+}
+}}}
