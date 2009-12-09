@@ -310,7 +310,7 @@ class AORGLU: public Agent {
         * RGK -  Chatter Cache Management
         */
         void		cc_insert(nsaddr_t id);
-	bool		cc_lookup(nsaddr_t id);
+	ChatterEntry*	cc_lookup(nsaddr_t id);
 	void		cc_purge(void);
 
         /*
@@ -346,7 +346,7 @@ class AORGLU: public Agent {
         /*
          * csh - LUDP functions
          */
-	void		sendLudp();
+	void		sendLudp(nsaddr_t);
 	void		recvLudp(Packet *p);
 
 	/*

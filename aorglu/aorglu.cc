@@ -140,7 +140,7 @@ AORGLU::command(int argc, const char*const* argv) {
 
 /*RGK - Added loctimer to constructor list*/
 AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this), cctimer(this),
-			  btimer(this), lutimer(this), htimer(this), ntimer(this), 
+			  lutimer(this), btimer(this), htimer(this), ntimer(this), 
 			  rtimer(this), lrtimer(this), rqueue() {
   index = id;
   seqno = 2;
@@ -182,7 +182,7 @@ AORGLUBroadcastTimer::handle(Event*) {
 //csh - LUDP Timer handler
 void
 AORGLULocationUpdateTimer::handle(Event*) {
-  agent->sendLudp();
+  agent->sendLudp(0);
   Scheduler::instance().schedule(this, &intr, LUDP_INTERVAL);
 }
 
@@ -251,25 +251,30 @@ AORGLU::cc_insert(nsaddr_t id)
   ChatterEntry *ce;
 
   /*If no existing entry*/
-  if(!cc_lookup(id)) {
+  if(!(ce = cc_lookup(id))) {
      ce = new ChatterEntry(id);
      assert(ce);
      ce->expire = CURRENT_TIME + CC_SAVE;
      LIST_INSERT_HEAD(&chead, ce, celink);
-  }    
+  }
+  else { /*Found an existing entry*/
+     assert(ce);
+     ce->expire = CURRENT_TIME + CC_SAVE;
+  }
+
 }
 
-bool            
+ChatterEntry *            
 AORGLU::cc_lookup(nsaddr_t id)
 {
   ChatterEntry *ce = chead.lh_first;
 
   for(;ce;ce=ce->celink.le_next) {
       if(ce->dst == id) {
-	return true;	
+	break;	
       }
   }
-  return false;
+  return ce;
 } 
 
 void            
@@ -1349,7 +1354,7 @@ fprintf(stderr, "sending Reply from %d at %.2f\n", index, Scheduler::instance().
 //------ sendLudp() function definition ---------------------------------//
 //csh
 void
-AORGLU::sendLudp() {
+AORGLU::sendLudp(nsaddr_t ipdst) {
 //will need to allocate packets for each node I am sending to and just change the destination address
 Packet *p = Packet::alloc();
 struct hdr_cmn *ch = HDR_CMN(p);
