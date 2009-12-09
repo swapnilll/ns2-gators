@@ -1,0 +1,29 @@
+#summary Contains info about LUDP requirement and the changes necessary to implement it.
+
+= Introduction =
+
+LUDP:
+
+  *Location updates are sent only if 1) a time of > T has expired since the last location update and 2) the current node has changed locations since the last location update.
+
+  *Location updates are sent by a destination node to all the nodes it is communicating with.
+
+  *Location updates are sent with period T = R - CD/2*(v1-v2) where CD is the distance between a destination node D and its one-hop neighbor (in the path to the source) C. R is the transmission range of D or C (whichever is smaller). V1 and V2 are the velocities of D and C respectively.
+
+  *It is required that each node can stores its own location in its location cache on a location update.
+
+  *The LUDP sending node must know:
+    * its current location (compared to its position in its location cache)
+    * its transmission range
+    * its velocity
+    * the velocity of its 1-hop neighbor on the path to the receiving node (C)
+    * the location of (C)
+    * the transmission range of (C)
+
+
+= Details =
+
+Add your content here.  Format your content with:
+  * Text in *bold* or _italic_
+  * Headings, paragraphs, and lists
+  * Automatic links to other wiki pages
