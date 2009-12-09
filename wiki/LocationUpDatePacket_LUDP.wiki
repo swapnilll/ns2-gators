@@ -31,7 +31,7 @@
 
 
 = Implementation of changes =
-1.  
+1. Set up LUDP Packet header structure. 
 {{{
 //--------- LOCATION UPDATE PACKET HEADER ---------------------
 //csh - Add LUDP packet header struct
@@ -61,7 +61,7 @@ struct hdr_aorglu_ludp {
 //--------------------------------------------------------------
 }}}
 
-2.
+2. List send and recv function prototypes in aorglu.h
 {{{
         /*
          * csh - LUDP functions
@@ -70,9 +70,9 @@ struct hdr_aorglu_ludp {
 	void		recvLudp(Packet *p);
 }}}
 
-3.
+3. Define the sendLudp() function
 {{{
-//------ sendLudp(...) function definition --------------------------//
+//------ sendLudp() function definition ----------------------------//
 //csh
 void
 AORGLU::sendLudp() {
@@ -122,10 +122,10 @@ fprintf(stderr, "sending LUDP from %d at %.2f\n", index, Scheduler::instance().c
  Scheduler::instance().schedule(target_, p, 0.);
 
 }
-//-----END sendLudp(...) ---------------------------------------//
+//-----END sendLudp() ---------------------------------------//
 }}}
 
-4.
+4. Define the recvLudp() function
 {{{
 //----- Definition of recvLudp() -------------------------------//
 void
@@ -185,12 +185,12 @@ aorglu_rt_entry *rt;
 
 }}}
 
-5.
+5. Update the receiving nodes Location Cache
 {{{
  //NEEDS TO BE COMPLETED
 }}}
 
-6.
+6. Create a timer for the LUDP transmissions (currently hard-coded to 3.0 ms)
 {{{
 IN aorglu.h:
 
