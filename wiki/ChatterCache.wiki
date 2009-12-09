@@ -14,7 +14,7 @@ The ChatterCache should include nodes which the current node has received data f
   # Initialize the ChatterList in the AORGLU constructor (LIST_INIT(..))
   # Add protected Queue management functions:
     * void cc_insert( nsaddr_t id) - Add a new ChatterCache entry to the ChatterList. This function checks for an existing entry. If an entry exists, it will not create a duplicate entry, but will refresh the expiration timer.
-    * ChatterEntry* cc_lookup( nsaddr_t id ) - This function returns a pointer to the ChatterEntry object in the Agent ChatterCache with the specified id, or NULL if no id exists.
+    * ChatterEntry`*` cc_lookup( nsaddr_t id ) - This function returns a pointer to the ChatterEntry object in the Agent ChatterCache with the specified id, or NULL if no id exists.
     * void cc_purge() - Delete all expired nodes (CURRENT_TIME > ce->expire).
   # Create a timer structure that calls cc_purge() periodically in order to remove any expired entries from the ChatterList.
     * The CC_SAVE define (default to 30s) defines how long a chatter cache entry is valid.
@@ -22,5 +22,5 @@ The ChatterCache should include nodes which the current node has received data f
 
 = Available Methods =
   * void cc_insert( nsaddr_t id) - Add a new ChatterCache entry to the ChatterList. This function checks for an existing entry. If an entry exists, it will not create a duplicate entry, but will refresh the expiration timer.
-  * ChatterEntry* cc_lookup( nsaddr_t id ) - This function returns a pointer to the ChatterEntry object in the Agent ChatterCache with the specified id, or NULL if no id exists.
+  * ChatterEntry'*' cc_lookup( nsaddr_t id ) - This function returns a pointer to the ChatterEntry object in the Agent ChatterCache with the specified id, or NULL if no id exists.
   * void cc_purge() - Delete all expired nodes (CURRENT_TIME > ce->expire).
