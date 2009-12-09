@@ -274,6 +274,7 @@ OBJ_CC = \
 	dsr/simplecache.o dsr/sr_forwarder.o \
 	aodv/aodv_logs.o aodv/aodv.o \
 	aodv/aodv_rtable.o aodv/aodv_rqueue.o \
+	aorglu/aorglu_loctable.o \
 	aorglu/aorglu_logs.o aorglu/aorglu.o \
 	aorglu/aorglu_rtable.o aorglu/aorglu_rqueue.o \
 	aomdv/aomdv_logs.o aomdv/aomdv.o \
