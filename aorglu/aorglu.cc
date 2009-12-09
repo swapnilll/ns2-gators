@@ -140,7 +140,7 @@ AORGLU::command(int argc, const char*const* argv) {
 */
 
 AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU),
-			  btimer(this), htimer(this), ntimer(this), 
+			  btimer(this), ,lutimer(this), htimer(this), ntimer(this), 
 			  rtimer(this), lrtimer(this), rqueue() {
  
                 
@@ -164,6 +164,14 @@ AORGLUBroadcastTimer::handle(Event*) {
   agent->id_purge();
   Scheduler::instance().schedule(this, &intr, BCAST_ID_SAVE);
 }
+
+//csh - LUDP Timer handler
+void
+AORGLULocationUpdateTimer::handle(Event*) {
+  agent->sendLudp();
+  Scheduler::instance().schedule(this, &intr, LUDP_INTERVAL);
+}
+
 void
 AORGLUHelloTimer::handle(Event*) {
    agent->sendHello();
@@ -771,8 +779,10 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
    Packet::free(p);
  }
 
- // I am not the destination, but I may have a fresh enough route.
+//The following case is not used in the AORGLU protocol since only the destination node of the RREQ knows its exact location.
+#if 0 
 
+ // I am not the destination, but I may have a fresh enough route.
  else if (rt && (rt->rt_hops != INFINITY2) && 
 	  	(rt->rt_seqno >= rq->rq_dst_seqno) ) {
 
@@ -808,6 +818,8 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
 
 	Packet::free(p);
  }
+#endif
+
  /*
   * Can't reply. So forward the  Route Request
   */
@@ -1190,7 +1202,6 @@ aorglu_rt_entry *rt = rtable.rt_lookup(dst);
 
 }
 
-//csh - definition of sendReply function
 void
 AORGLU::sendReply(nsaddr_t ipdst, u_int32_t hop_count, nsaddr_t rpdst,
                 u_int32_t rpseq, u_int32_t lifetime, double timestamp) {
@@ -1207,7 +1218,7 @@ fprintf(stderr, "sending Reply from %d at %.2f\n", index, Scheduler::instance().
 
   //csh - Get the x and y coordinates from the current node
   //and add them to the packet header.
-  MobileNode *currNode = (MobileNode*) Node::get_node_by_address(index);
+  MobileNode *currNode = (MobileNode*) Node::get_node_by_address(index); //this will not work if someone other than the RREQ dest sends the reply
   rp->rp_x = currNode->X();
   rp->rp_y = currNode->Y();
   rp->rp_z = currNode->Z();
@@ -1240,6 +1251,115 @@ fprintf(stderr, "sending Reply from %d at %.2f\n", index, Scheduler::instance().
  Scheduler::instance().schedule(target_, p, 0.);
 
 }
+
+
+//------ sendLudp() function definition ---------------------------------//
+//csh
+void
+AORGLU::sendLudp() {
+//will need to allocate packets for each node I am sending to and just change the destination address
+Packet *p = Packet::alloc();
+struct hdr_cmn *ch = HDR_CMN(p);
+struct hdr_ip *ih = HDR_IP(p);
+struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
+aorglu_rt_entry *rt = rtable.rt_lookup(ipdst);
+
+#ifdef DEBUG
+fprintf(stderr, "sending LUDP from %d at %.2f\n", index, Scheduler::instance().clock());
+#endif // DEBUG
+ assert(rt);
+
+  //csh - Get the x, y, and z coordinates from the current node
+  //and add them to the packet header.
+  MobileNode *currNode = (MobileNode*) Node::get_node_by_address(index);
+  lu->lu_x = currNode->X();
+  lu->lu_y = currNode->Y();
+  lu->lu_z = currNode->Z();
+
+ //update LUDP packet header info
+ lu->lu_type = AORGLUTYPE_LUDP;
+ lu->lu_dst = ipdst; //same as ludst
+ lu->lu_src = index;
+   
+ //update common header info
+ ch->ptype() = PT_AORGLU;
+ ch->size() = IP_HDR_LEN + lu->size();
+ ch->iface() = -2;
+ ch->error() = 0;
+ ch->addr_type() = NS_AF_INET;
+ ch->next_hop_ = rt->rt_nexthop;
+ ch->prev_hop_ = index;          // AORGLU hack
+ ch->direction() = hdr_cmn::DOWN;
+
+ //update the IP packet header info
+ ih->saddr() = index;
+ ih->daddr() = ipdst;
+ ih->sport() = RT_PORT;
+ ih->dport() = RT_PORT;
+ ih->ttl_ = NETWORK_DIAMETER;
+
+ //schedule the LUDP packet to be sent
+ //NOTE: Will need to send to all nodes in the recently communicated list
+ Scheduler::instance().schedule(target_, p, 0.);
+
+}
+//-----END sendLudp(...) ---------------------------------------//
+
+//----- Definition of recvLudp() -------------------------------//
+void
+AORGLU::recvLudp(Packet *p) {
+struct hdr_ip *ih = HDR_IP(p);
+struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
+aorglu_rt_entry *rt;
+
+  /*
+   * Drop if the current node is the source
+   */
+
+  if(lu->lu_src == index) {
+#ifdef DEBUG
+    fprintf(stderr, "%s: got my own Location Update\n", __FUNCTION__);
+#endif // DEBUG
+    Packet::free(p);
+    return;
+  } 
+
+
+ /* 
+  * Either this is the destination, or the Location Updated must be forwarded
+  */
+ // Look up the next-hop info from the route table
+ rt = rtable.rt_lookup(lu->lu_dst);
+
+ // First check if I am the destination ..
+ if(lu->lu_dst == index) {
+
+#ifdef DEBUG
+   fprintf(stderr, "%d - %s: Location Update successfully delivered\n",
+                   index, __FUNCTION__);
+#endif // DEBUG
+
+ /*
+  *  Add location information from the sending node to the current
+  *   node's location cache here
+  */
+ 
+   // ADD CODE HERE!!!  
+
+   Packet::free(p);
+ }
+
+ /*
+  * Not the destination, so forward the Location Update.
+  */
+ else {
+   //Note: The recvReply function does stuff with the queue here before forwarding,
+   //       not sure if that should be done here as well.
+   forward(rt, p, DELAY);
+ }
+
+}
+//------END of recvLudp(...)---------------------------------------//
 
 void
 AORGLU::sendError(Packet *p, bool jitter) {

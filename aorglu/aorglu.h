@@ -53,7 +53,6 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
   links are up/down.
 */
 //#define AORGLU_LINK_LAYER_DETECTION
-/*Need to enable HELLO packets*/
 
 /*
   Causes AORGLU to apply a "smoothing" function to the link layer feedback
@@ -120,6 +119,7 @@ class AORGLU;
 #define HELLO_INTERVAL          1               // 1000 ms
 #define ALLOWED_HELLO_LOSS      3               // packets
 #define BAD_LINK_LIFETIME       3               // 3000 ms
+#define LUDP_INTERVAL		3		// 3000 ms - csh
 #define MaxHelloInterval        (1.25 * HELLO_INTERVAL)
 #define MinHelloInterval        (0.75 * HELLO_INTERVAL)
 
@@ -129,6 +129,16 @@ class AORGLU;
 class AORGLUBroadcastTimer : public Handler {
 public:
         AORGLUBroadcastTimer(AORGLU* a) : agent(a) {}
+        void	handle(Event*);
+private:
+        AORGLU    *agent;
+	Event	intr;
+};
+
+//csh - added Location Update Timer prototype
+class AORGLULocationUpdateTimer : public Handler {
+public:
+        AORGLULocationUpdateTimer(AORGLU* a) : agent(a) {}
         void	handle(Event*);
 private:
         AORGLU    *agent;
@@ -200,6 +210,7 @@ class AORGLU: public Agent {
 
         friend class aorglu_rt_entry;
         friend class AORGLUBroadcastTimer;
+	friend class AORGLULocationUpdateTimer; //csh - friend class
         friend class AORGLUHelloTimer;
         friend class AORGLUNeighborTimer;
         friend class AORGLURouteCacheTimer;
@@ -254,8 +265,8 @@ class AORGLU: public Agent {
         void            forward(aorglu_rt_entry *rt, Packet *p, double delay);
         void            sendHello(void);
         void            sendRequest(nsaddr_t dst);
-
-        void            sendReply(nsaddr_t ipdst, u_int32_t hop_count,
+      
+	void            sendReply(nsaddr_t ipdst, u_int32_t hop_count,
                                   nsaddr_t rpdst, u_int32_t rpseq,
                                   u_int32_t lifetime, double timestamp);
         void            sendError(Packet *p, bool jitter = true);
@@ -268,6 +279,13 @@ class AORGLU: public Agent {
         void            recvRequest(Packet *p);
         void            recvReply(Packet *p);
         void            recvError(Packet *p);
+	
+
+        /*
+         * csh - LUDP functions
+         */
+	void		sendLudp();
+	void		recvLudp(Packet *p);
 
 	/*
 	 * History management
@@ -287,11 +305,12 @@ class AORGLU: public Agent {
         /*
          * Timers
          */
-        AORGLUBroadcastTimer  btimer;
-        AORGLUHelloTimer      htimer;
-        AORGLUNeighborTimer   ntimer;
-        AORGLURouteCacheTimer rtimer;
-        AORGLULocalRepairTimer lrtimer;
+        AORGLUBroadcastTimer  		btimer;
+	AORGLULocationUpdateTimer	lutimer; //csh - instance of LUDP timer
+        AORGLUHelloTimer      		htimer;
+        AORGLUNeighborTimer   		ntimer;
+        AORGLURouteCacheTimer 		rtimer;
+        AORGLULocalRepairTimer 		lrtimer;
 
         /*
          * Routing Table

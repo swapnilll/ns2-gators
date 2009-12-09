@@ -44,6 +44,7 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #define AORGLUTYPE_RREP   	0x04
 #define AORGLUTYPE_RERR   	0x08
 #define AORGLUTYPE_RREP_ACK  	0x10
+#define AORGLUTYPE_LUDP		0x20 //csh - add Location UpDate Packet (LUDP)
 
 /*
  * AORGLU Routing Protocol Header Macros
@@ -53,6 +54,7 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #define HDR_AORGLU_REPLY(p)	((struct hdr_aorglu_reply*)hdr_aorglu::access(p))
 #define HDR_AORGLU_ERROR(p)	((struct hdr_aorglu_error*)hdr_aorglu::access(p))
 #define HDR_AORGLU_RREP_ACK(p)	((struct hdr_aorglu_rrep_ack*)hdr_aorglu::access(p))
+#define HDR_AORGLU_LUDP(p)	((struct hdr_aorglu_ludp*)hdr_aorglu::access(p)) //csh - add LUDP macro to access the header
 
 /*
  * General AORGLU Header - shared by all formats
@@ -166,6 +168,33 @@ struct hdr_aorglu_error {
   }
 
 };
+
+//--------- LOCATION UPDATE PACKET HEADER ---------------------
+//csh - Add LUDP packet header struct
+struct hdr_aorglu_ludp {
+        u_int8_t        lu_type;        // Packet Type
+        nsaddr_t        lu_dst;         // Destination IP Address
+        nsaddr_t        lu_src;         // Source IP Address
+	double		lu_x;		// X coordinate of node sending reply
+	double		lu_y;		// Y coordinate of node sending reply
+	double		lu_z;		// Z coordinate of node sending reply
+						
+  inline int size() { 
+  int sz = 0;
+  
+  	sz = sizeof(u_int8_t)		// lu_type
+	     + sizeof(nsaddr_t)		// lu_dst
+	     + sizeof(nsaddr_t)		// lu_src
+	     + sizeof(double)		// lu_x
+	     + sizeof(double)		// lu_y
+	     + sizeof(double);		// lu_z
+  
+  	assert (sz >= 0);
+	return sz;
+  }
+
+};
+//--------------------------------------------------------------
 
 struct hdr_aorglu_rrep_ack {
 	u_int8_t	rpack_type;
