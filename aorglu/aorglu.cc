@@ -50,7 +50,6 @@ static int limit_route_request = 0;
 static int route_request = 0;
 #endif
 
-
 /*
   TCL Hooks
 */
@@ -139,17 +138,19 @@ AORGLU::command(int argc, const char*const* argv) {
    Constructor
 */
 
-AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU),
-			  btimer(this), ,lutimer(this), htimer(this), ntimer(this), 
+/*RGK - Added loctimer to constructor list*/
+AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this), cctimer(this),
+			  btimer(this), lutimer(this), htimer(this), ntimer(this), 
 			  rtimer(this), lrtimer(this), rqueue() {
- 
-                
   index = id;
   seqno = 2;
   bid = 1;
 
   LIST_INIT(&nbhead);
   LIST_INIT(&bihead);
+
+  /*RGK - Initialize the chatter cache*/
+  LIST_INIT(&chead);
 
   logtarget = 0;
   ifqueue = 0;
@@ -158,6 +159,19 @@ AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU),
 /*
   Timers
 */
+
+#define FREQUENCY 0.5
+
+/*RGK - Location Cache Timer*/
+void
+AORGLULocationCacheTimer::handle(Event *)
+{
+  /*Cache entries don't expire when LOC_CACHE_EXP == -1*/
+  #if (LOC_CACHE_EXP != -1)
+  agent->loc_purge(); /*Purge expired locations*/
+  Scheduler::instance().schedule(this,&intr, FREQUENCY);
+  #endif
+}  
 
 void
 AORGLUBroadcastTimer::handle(Event*) {
@@ -170,6 +184,13 @@ void
 AORGLULocationUpdateTimer::handle(Event*) {
   agent->sendLudp();
   Scheduler::instance().schedule(this, &intr, LUDP_INTERVAL);
+}
+
+void
+AORGLUChatterCacheTimer::handle(Event*) 
+{
+  agent->cc_purge(); /*Purge the ChatterCache*/
+  Scheduler::instance().schedule(this, &intr, CC_SAVE);
 }
 
 void
@@ -190,7 +211,6 @@ AORGLUNeighborTimer::handle(Event*) {
 void
 AORGLURouteCacheTimer::handle(Event*) {
   agent->rt_purge();
-#define FREQUENCY 0.5 // sec
   Scheduler::instance().schedule(this, &intr, FREQUENCY);
 }
 
@@ -222,11 +242,55 @@ struct hdr_ip *ih = HDR_IP( (Packet *)p);
     Packet::free((Packet *)p);
 }
 
+/*
+ * RGK -  Chatter Cache Management
+ */
+void            
+AORGLU::cc_insert(nsaddr_t id)
+{
+  ChatterEntry *ce;
+
+  /*If no existing entry*/
+  if(!cc_lookup(id)) {
+     ce = new ChatterEntry(id);
+     assert(ce);
+     ce->expire = CURRENT_TIME + CC_SAVE;
+     LIST_INSERT_HEAD(&chead, ce, celink);
+  }    
+}
+
+bool            
+AORGLU::cc_lookup(nsaddr_t id)
+{
+  ChatterEntry *ce = chead.lh_first;
+
+  for(;ce;ce=ce->celink.le_next) {
+      if(ce->dst == id) {
+	return true;	
+      }
+  }
+  return false;
+} 
+
+void            
+AORGLU::cc_purge()
+{
+  ChatterEntry *ce, *nce; 
+  double now = CURRENT_TIME;
+
+  for(ce=chead.lh_first; ce; ce = nce) {
+      nce = ce->celink.le_next;
+      if(ce->expire <= now) {
+	LIST_REMOVE(ce, celink);
+	delete ce;      
+      } 
+  
+   }
+}
 
 /*
    Broadcast ID Management  Functions
 */
-
 
 void
 AORGLU::id_insert(nsaddr_t id, u_int32_t bid) {
@@ -304,10 +368,10 @@ aorglu_rt_failed_callback(Packet *p, void *arg) {
  */
 void
 AORGLU::rt_ll_failed(Packet *p) {
-struct hdr_cmn *ch = HDR_CMN(p);
-struct hdr_ip *ih = HDR_IP(p);
-aorglu_rt_entry *rt;
-nsaddr_t broken_nbr = ch->next_hop_;
+//struct hdr_cmn *ch = HDR_CMN(p);
+//struct hdr_ip *ih = HDR_IP(p);
+//aorglu_rt_entry *rt;
+//nsaddr_t broken_nbr = ch->next_hop_;
 
 #ifndef AORGLU_LINK_LAYER_DETECTION
  drop(p, DROP_RTR_MAC_CALLBACK);
@@ -456,8 +520,10 @@ aorglu_rt_entry *rt;
   */
  ch->xmit_failure_ = aorglu_rt_failed_callback;
  ch->xmit_failure_data_ = (void*) this;
-	rt = rtable.rt_lookup(ih->daddr());
- if(rt == 0) {
+ 
+ /*Check to see if the route is already in the route table.*/ 
+ rt = rtable.rt_lookup(ih->daddr());
+ if(rt == 0) { /*Its not?? So add it!*/
 	  rt = rtable.rt_add(ih->daddr());
  }
 
@@ -472,7 +538,7 @@ aorglu_rt_entry *rt;
  /*
   *  if I am the source of the packet, then do a Route Request.
   */
-	else if(ih->saddr() == index) {
+ else if(ih->saddr() == index) {
    rqueue.enque(p);
    sendRequest(rt->rt_dst);
  }
@@ -510,6 +576,31 @@ aorglu_rt_entry *rt;
  }
 
 }
+
+/*RGK - loc_purge
+ Purge any expired location entries!
+*/
+void 
+AORGLU::loc_purge()
+{
+  double now = CURRENT_TIME;
+  aorglu_loc_entry *le, *nle;
+
+  for(le = loctable.head(); le; le = nle) {
+      /*Get the next entry*/
+      nle = le->loc_link.le_next;
+ 
+      /*Check if the entry expired*/
+      if(le->loc_expire < now) {
+	loctable.loc_delete(le->id);
+	
+	#ifdef DEBUG
+	fprintf(stderr,"Location Entry for Node %d Expired!\n", le->id);
+	#endif
+
+      }
+   }
+} 
 
 void
 AORGLU::rt_purge() {
@@ -567,13 +658,13 @@ Packet *p;
 void
 AORGLU::recv(Packet *p, Handler*) {
 struct hdr_cmn *ch = HDR_CMN(p);
-struct hdr_ip *ih = HDR_IP(p);
+struct hdr_ip *ih = HDR_IP(p); /*Get the IP header*/
 
  assert(initialized());
  //assert(p->incoming == 0);
  // XXXXX NOTE: use of incoming flag has been depracated; In order to track direction of pkt flow, direction_ in hdr_cmn is used instead. see packet.h for details.
 
- if(ch->ptype() == PT_AORGLU) {
+ if(ch->ptype() == PT_AORGLU) { /*If we received a AORGLU packet, process it with recvAORGLU*/
    ih->ttl_ -= 1;
    recvAORGLU(p);
    return;
@@ -624,7 +715,7 @@ else if(ih->saddr() == index) {
    forward((aorglu_rt_entry*) 0, p, NO_DELAY);
 }
 
-
+/*Process a AORGLU packet*/
 void
 AORGLU::recvAORGLU(Packet *p) {
  struct hdr_aorglu *ah = HDR_AORGLU(p);
@@ -651,6 +742,10 @@ AORGLU::recvAORGLU(Packet *p) {
 
  case AORGLUTYPE_HELLO:
    recvHello(p);
+   break;
+
+ case AORGLUTYPE_LUDP:
+   recvLudp(p);
    break;
         
  default:
@@ -695,8 +790,6 @@ aorglu_rt_entry *rt;
   * Cache the broadcast ID
   */
  id_insert(rq->rq_src, rq->rq_bcast_id);
-
-
 
  /* 
   * We are either going to forward the REQUEST or generate a
@@ -1413,7 +1506,7 @@ struct hdr_aorglu_reply *rh = HDR_AORGLU_REPLY(p);
 
 #ifdef DEBUG
 fprintf(stderr, "sending Hello from %d at %.2f\n", index, Scheduler::instance().clock());
-#endif // DEBUG
+#endif
 
   //csh - Get the x and y coordinates from the current node
   //and add them to the packet header.
@@ -1461,6 +1554,8 @@ AORGLU_Neighbor *nb;
    nb->nb_expire = CURRENT_TIME +
                    (1.5 * ALLOWED_HELLO_LOSS * HELLO_INTERVAL);
  }
+
+/*Need to update the location cache here*/
 
    //csh - print out coordinates when reply is received
 #ifdef DEBUG

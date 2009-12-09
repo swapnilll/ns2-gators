@@ -111,7 +111,7 @@ struct hdr_aorglu_request {
 };
 
 struct hdr_aorglu_reply {
-        u_int8_t        rp_type;        // Packet Type
+        u_int8_t        rp_type;                // Packet Type
         u_int8_t        reserved[2];
         u_int8_t        rp_hop_count;           // Hop Count
         nsaddr_t        rp_dst;                 // Destination IP Address

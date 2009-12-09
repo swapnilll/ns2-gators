@@ -24,7 +24,7 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Samir Das and Mahesh Marina, University of Cincinnati. The work was partially done in Sun Microsystems.
+The AODV code developed by the CMU/MONARCH group was optimized and tuned by Samir Das and Mahesh Marina, University of Cincinnati. The work was partially done in Sun Microsystems.
 
 */
 
@@ -42,6 +42,9 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #include <aorglu/aorglu_rtable.h>
 #include <aorglu/aorglu_rqueue.h>
 #include <classifier/classifier-port.h>
+
+/*RGK - Include location cache header*/
+#include <aorglu/aorglu_loctable.h>
 
 /*
   Allows local repair of routes 
@@ -78,6 +81,11 @@ class AORGLU;
 #define REV_ROUTE_LIFE          6				// 5  seconds
 #define BCAST_ID_SAVE           6				// 3 seconds
 
+/*RGK - LOC_CACHE_EXP Time (How long a cache entry lives. 0 disables)*/
+#define LOC_CACHE_EXP -1 
+
+/*RGK - CC_SAVE (How long an entry in the chatter cache lasts.*/
+#define CC_SAVE       30
 
 // No. of times to do network-wide search before timing out for 
 // MAX_RREQ_TIMEOUT sec. 
@@ -126,6 +134,18 @@ class AORGLU;
 /*
   Timers (Broadcast ID, Hello, Neighbor Cache, Route Cache)
 */
+
+/*RGK - Location Cache Timer*/
+class AORGLULocationCacheTimer : public Handler
+{
+  public:
+	AORGLULocationCacheTimer(AORGLU* a) : agent(a) {}
+        void handle(Event*);
+  private:
+	AORGLU *agent;
+	Event intr;
+};
+
 class AORGLUBroadcastTimer : public Handler {
 public:
         AORGLUBroadcastTimer(AORGLU* a) : agent(a) {}
@@ -133,6 +153,17 @@ public:
 private:
         AORGLU    *agent;
 	Event	intr;
+};
+
+/*RGK - ChatterCacheTimer*/
+class AORGLUChatterCacheTimer : public Handler
+{
+  public:
+	AORGLUChatterCacheTimer(AORGLU *a) : agent(a) {}
+	void  handle(Event*);
+  private:
+	AORGLU *agent;
+	Event intr;
 };
 
 //csh - added Location Update Timer prototype
@@ -198,6 +229,22 @@ class BroadcastID {
 
 LIST_HEAD(aorglu_bcache, BroadcastID);
 
+/*
+  RGK - Chatter Cache
+  This cache keeps track of nodes to which have been
+  recently communicated.
+*/
+class ChatterEntry {
+	friend class AORGLU;
+  public:
+	ChatterEntry(nsaddr_t id) { dst = id; }
+  private:
+	LIST_ENTRY(ChatterEntry) celink;
+	nsaddr_t dst;
+	double expire;
+};
+
+LIST_HEAD(aorglu_ccache, ChatterEntry);
 
 /*
   The Routing Agent
@@ -209,6 +256,11 @@ class AORGLU: public Agent {
    */
 
         friend class aorglu_rt_entry;
+
+	/*RGK*/
+        friend class AORGLULocationCacheTimer;
+	friend class AORGLUChatterCacheTimer;
+
         friend class AORGLUBroadcastTimer;
 	friend class AORGLULocationUpdateTimer; //csh - friend class
         friend class AORGLUHelloTimer;
@@ -243,6 +295,9 @@ class AORGLU: public Agent {
         void            enque(aorglu_rt_entry *rt, Packet *p);
         Packet*         deque(aorglu_rt_entry *rt);
 
+       /* RGK - Location Management*/
+        void            loc_purge(void);
+
         /*
          * Neighbor Management
          */
@@ -250,6 +305,13 @@ class AORGLU: public Agent {
         AORGLU_Neighbor*       nb_lookup(nsaddr_t id);
         void            nb_delete(nsaddr_t id);
         void            nb_purge(void);
+
+       /*
+        * RGK -  Chatter Cache Management
+        */
+        void		cc_insert(nsaddr_t id);
+	bool		cc_lookup(nsaddr_t id);
+	void		cc_purge(void);
 
         /*
          * Broadcast ID Management
@@ -302,15 +364,27 @@ class AORGLU: public Agent {
         aorglu_ncache         nbhead;                 // Neighbor Cache
         aorglu_bcache          bihead;                 // Broadcast ID Cache
 
+	/*RGK - Chatter Cache Head*/
+        aorglu_ccache         chead; 		    //Chatter Cache Head
+
         /*
          * Timers
          */
-        AORGLUBroadcastTimer  		btimer;
-	AORGLULocationUpdateTimer	lutimer; //csh - instance of LUDP timer
-        AORGLUHelloTimer      		htimer;
-        AORGLUNeighborTimer   		ntimer;
-        AORGLURouteCacheTimer 		rtimer;
-        AORGLULocalRepairTimer 		lrtimer;
+
+        /*RGK*/
+        AORGLULocationCacheTimer loctimer;
+	AORGLUChatterCacheTimer cctimer;
+        //csh - instance of LUDP timer
+	AORGLULocationUpdateTimer	lutimer; 
+
+        AORGLUBroadcastTimer  btimer;
+        AORGLUHelloTimer      htimer;
+        AORGLUNeighborTimer   ntimer;
+        AORGLURouteCacheTimer rtimer;
+        AORGLULocalRepairTimer lrtimer;
+
+	/*RGK - Location Table*/
+	aorglu_loctable	      loctable;
 
         /*
          * Routing Table

@@ -24,7 +24,7 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Samir Das and Mahesh Marina, University of Cincinnati. The work was partially done in Sun Microsystems.
+The AODV code developed by the CMU/MONARCH group was optimized and tuned by Samir Das and Mahesh Marina, University of Cincinnati. The work was partially done in Sun Microsystems.
 */
 
 
@@ -66,7 +66,9 @@ int i;
 
 }
 
-
+/**
+ * Destructor for the route entry class
+*/
 aorglu_rt_entry::~aorglu_rt_entry()
 {
 AORGLU_Neighbor *nb;
@@ -86,6 +88,9 @@ AORGLU_Precursor *pc;
 }
 
 
+/**
+ * Insert a new neighbor for a given nsaddr_t
+ */
 void
 aorglu_rt_entry::nb_insert(nsaddr_t id)
 {
@@ -97,12 +102,14 @@ AORGLU_Neighbor *nb = new AORGLU_Neighbor(id);
 
 }
 
-
+/**
+ * Lookup Neighbor node from nsaddr_t
+ */
 AORGLU_Neighbor*
 aorglu_rt_entry::nb_lookup(nsaddr_t id)
 {
 AORGLU_Neighbor *nb = rt_nblist.lh_first;
-
+ //Search the linked list for the node.
  for(; nb; nb = nb->nb_link.le_next) {
    if(nb->nb_addr == id)
      break;
@@ -186,6 +193,9 @@ aorglu_rt_entry *rt = rthead.lh_first;
 
 }
 
+/**
+ * Delete route table entry
+ */
 void
 aorglu_rtable::rt_delete(nsaddr_t id)
 {
@@ -198,6 +208,7 @@ aorglu_rt_entry *rt = rt_lookup(id);
 
 }
 
+/*Add new route entry*/
 aorglu_rt_entry*
 aorglu_rtable::rt_add(nsaddr_t id)
 {
@@ -210,3 +221,4 @@ aorglu_rt_entry *rt;
  LIST_INSERT_HEAD(&rthead, rt, rt_link);
  return rt;
 }
+
