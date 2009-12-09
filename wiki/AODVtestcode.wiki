@@ -7,7 +7,7 @@ The following code is my current 100-node AODV simulator (filename testAODV.tcl)
 The node starting positions, destinations, and travel speeds are random.
 
 = Details =
-
+{{{
 # A 100-node example for ad-hoc simulation with AODV
 
 # Define options
@@ -131,3 +131,4 @@ proc stop {} {
 }
 
 $ns run
+}}}
