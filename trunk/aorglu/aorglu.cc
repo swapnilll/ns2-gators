@@ -86,7 +86,12 @@ AORGLU::command(int argc, const char*const* argv) {
     }
     
     if(strncasecmp(argv[1], "start", 2) == 0) {
-      btimer.handle((Event*) 0);
+      /*Need to schedule the first event RGK*/
+      /*12/09/09 - lutimer causes segmentation fault*/
+      lutimer.handle((Event*) 0); /*Init the LUDP timer*/
+      loctimer.handle((Event*) 0); /*Init loc cache timer*/
+      cctimer.handle((Event*) 0);  /*Init chatter cache timer*/
+      btimer.handle((Event*) 0);  /*Init broadcast timer*/
 
 #ifndef AORGLU_LINK_LAYER_DETECTION
       htimer.handle((Event*) 0);
@@ -182,6 +187,8 @@ AORGLUBroadcastTimer::handle(Event*) {
 //csh - LUDP Timer handler
 void
 AORGLULocationUpdateTimer::handle(Event*) {
+  /*TODO: This should send an LUDP packet to ALL nodes in the ChatterCache*/ 
+
   agent->sendLudp(0);
   Scheduler::instance().schedule(this, &intr, LUDP_INTERVAL);
 }
@@ -1019,10 +1026,17 @@ if (ih->daddr() == index) { // If I am the original source
 
 if(ih->daddr() == index || suppress_reply) {
    //csh - print out coordinates when reply is received
+   
+   /*RGK - Add location entry*/
+   loctable.loc_add(ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
+
 #ifdef DEBUG
+   fprintf(stderr, "recvReply():\n");
    fprintf(stderr, "The current node address is %d\n", index);
    fprintf(stderr, "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
+   loctable.print();
 #endif //DEBUG
+
    Packet::free(p);
  }
  /*
@@ -1362,9 +1376,12 @@ struct hdr_ip *ih = HDR_IP(p);
 struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
 aorglu_rt_entry *rt = rtable.rt_lookup(ipdst);
 
-#ifdef DEBUG
-fprintf(stderr, "sending LUDP from %d at %.2f\n", index, Scheduler::instance().clock());
-#endif // DEBUG
+//What if no route exists? The route expiration timer and chatter cache timer are different
+
+if(!rt) 
+  return;
+
+ fprintf(stderr, "sending LUDP from %d at %.2f\n", index, Scheduler::instance().clock());
  assert(rt);
 
   //csh - Get the x, y, and z coordinates from the current node
@@ -1398,7 +1415,7 @@ fprintf(stderr, "sending LUDP from %d at %.2f\n", index, Scheduler::instance().c
 
  //schedule the LUDP packet to be sent
  //NOTE: Will need to send to all nodes in the recently communicated list
- Scheduler::instance().schedule(target_, p, 0.);
+// Scheduler::instance().schedule(target_, p, 0);
 
 }
 //-----END sendLudp(...) ---------------------------------------//
@@ -1560,12 +1577,16 @@ AORGLU_Neighbor *nb;
                    (1.5 * ALLOWED_HELLO_LOSS * HELLO_INTERVAL);
  }
 
-/*Need to update the location cache here*/
+   /*RGK - Add a location table entry*/
+   /*12/09/09 - Appears to work as intended!*/
+   loctable.loc_add(ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
 
    //csh - print out coordinates when reply is received
 #ifdef DEBUG
+   fprintf(stderr, "recvHello:\n");
    fprintf(stderr, "The current node address is %d\n", index);
    fprintf(stderr, "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
+   loctable.print(); /*Print out the formatted location table*/
 #endif //DEBUG
 
  Packet::free(p);
