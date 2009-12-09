@@ -10,11 +10,27 @@ In order to implement LUDP packets, it is necessary to implement a cache which k
 == Code Modifications ==
 *aorglu.h*
 {{{
+
+/*RGK - CC_SAVE (How long an entry in the chatter cache lasts.*/
+#define CC_SAVE       30
+
+/*RGK - ChatterCacheTimer*/
+class AORGLUChatterCacheTimer : public Handler
+{
+  public:
+        AORGLUChatterCacheTimer(AORGLU *a) : agent(a) {}
+        void  handle(Event*);
+  private:
+        AORGLU *agent;
+        Event intr;
+};
+
 /*
   RGK - Chatter Cache
   This cache keeps track of nodes to which have been
   recently communicated.
 */
+
 class ChatterEntry {
         friend class AORGLU;
   public:
@@ -34,7 +50,7 @@ LIST_HEAD(aorglu_ccache, ChatterEntry);
         */
         void            cc_insert(nsaddr_t id);
         bool            cc_lookup(nsaddr_t id);
-        void            cc_purge(nsaddr_t id);
+        void            cc_purge(void);
 }}}
 
 {{{
@@ -64,5 +80,50 @@ AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this),
   
   logtarget = 0;
   ifqueue = 0;
+}
+}}}
+
+{{{
+/*
+ * RGK -  Chatter Cache Management
+ */
+void
+cc_insert(nsaddr_t id)
+{
+  ChatterEntry *ce;
+
+  /*If no existing entry*/
+  if(!cc_lookup(id)) {
+     ce = new ChatterEntry(id);
+     LIST_INSERT_HEAD(&chead, ce, celink);
+  }
+}
+
+bool
+cc_lookup(nsaddr_t id)
+{
+  ChatterEntry *ce = chead.lh_first;
+
+  for(;ce;ce=ce->celink.le_next) {
+      if(ce->dst == id) {
+        return true;
+      }
+  }
+  return false;
+}
+
+void
+cc_purge(void)
+{
+  ChatterEntry *ce, *nce;
+  double now = CURRENT_TIME;
+
+  for(ce=chead.lh_first; ce; ce = nce) {
+      nce = ce->celink.le_next;
+      if(ce->expire <= now) {
+        LIST_REMOVE(ce, celink);
+        delete ce;
+      }
+
 }
 }}}
