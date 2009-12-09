@@ -1,4 +1,6 @@
-#summary The AOR-GLU routing protocol requires a table that keeps track of the current locations of 1-hop node neighbours as well as nodes with which there has been communication. In order to facilitate this both HELLO packets and RREQ/RREP contain location information to be stored in the receiving node's location cache.
+#summary The AOR-GLU routing protocol requires a table that keeps track of the current locations of 1-hop node neighbours as well as nodes with which there has been communication.
+
+ In order to facilitate this both HELLO packets and RREQ/RREP contain location information to be stored in the receiving node's location cache.
 
 = Introduction =
 The LocationTable (aorglu_loctable class) stores location information for nodes. It will need to be updated with:
