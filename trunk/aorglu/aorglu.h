@@ -84,12 +84,13 @@ class AORGLU;
 /*RGK - LOC_CACHE_EXP Time (How long a cache entry lives. 0 disables)*/
 #define LOC_CACHE_EXP -1 
 
-/*RGK - CC_SAVE (How long an entry in the chatter cache lasts.*/
-#define CC_SAVE       30
+/*RGK - LUDP_CACHE_SAVE (How long an entry in the LUDP cache lasts.*/
+#define LUDP_CACHE_SAVE       30
 
 // No. of times to do network-wide search before timing out for 
 // MAX_RREQ_TIMEOUT sec. 
 #define RREQ_RETRIES            3  
+
 // timeout after doing network-wide search RREQ_RETRIES times
 #define MAX_RREQ_TIMEOUT	10.0 //sec
 
@@ -156,11 +157,11 @@ private:
 	Event	intr;
 };
 
-/*RGK - ChatterCacheTimer*/
-class AORGLUChatterCacheTimer : public Handler
+/*RGK - LUDPCacheTimer*/
+class AORGLULUDPCacheTimer : public Handler
 {
   public:
-	AORGLUChatterCacheTimer(AORGLU *a) : agent(a) {}
+	AORGLULUDPCacheTimer(AORGLU *a) : agent(a) {}
 	void  handle(Event*);
   private:
 	AORGLU *agent;
@@ -231,22 +232,22 @@ class BroadcastID {
 LIST_HEAD(aorglu_bcache, BroadcastID);
 
 /*
-  RGK - Chatter Cache
+  RGK - LUDP Cache
   This cache keeps track of nodes to which have been
   recently communicated.
 */
-class ChatterEntry {
+class LUDPCacheEntry {
         friend class AORGLULocationUpdateTimer;
 	friend class AORGLU;
   public:
-	ChatterEntry(nsaddr_t id) { dst = id; }
+	LUDPCacheEntry(nsaddr_t id) { dst = id; }
   private: 
-	LIST_ENTRY(ChatterEntry) celink;
+	LIST_ENTRY(LUDPCacheEntry) lclink;
 	nsaddr_t dst;
  	double expire;
 };
 
-LIST_HEAD(aorglu_ccache, ChatterEntry);
+LIST_HEAD(aorglu_ludpcache, LUDPCacheEntry);
 
 /*
   The Routing Agent
@@ -261,7 +262,7 @@ class AORGLU: public Agent {
 
 	/*RGK*/
         friend class AORGLULocationCacheTimer;
-	friend class AORGLUChatterCacheTimer;
+	friend class AORGLULUDPCacheTimer;
 
         friend class AORGLUBroadcastTimer;
 	friend class AORGLULocationUpdateTimer; //csh - friend class
@@ -309,11 +310,11 @@ class AORGLU: public Agent {
         void            nb_purge(void);
 
        /*
-        * RGK -  Chatter Cache Management
+        * RGK -  LUDP Cache Management
         */
-        void		cc_insert(nsaddr_t id);
-	ChatterEntry*	cc_lookup(nsaddr_t id);
-	void		cc_purge(void);
+        void		ludpcache_insert(nsaddr_t id);
+	LUDPCacheEntry*	ludpcache_lookup(nsaddr_t id);
+	void		ludpcache_purge(void);
 
         /*
          * Broadcast ID Management
@@ -371,8 +372,8 @@ class AORGLU: public Agent {
         aorglu_ncache         nbhead;                 // Neighbor Cache
         aorglu_bcache          bihead;                 // Broadcast ID Cache
 
-	/*RGK - Chatter Cache Head*/
-        aorglu_ccache         chead; 		    //Chatter Cache Head
+	/*RGK - LUDP Cache Head*/
+        aorglu_ludpcache       lchead; 	//LUDP Cache Head
 
         /*
          * Timers
@@ -380,7 +381,8 @@ class AORGLU: public Agent {
 
         /*RGK*/
         AORGLULocationCacheTimer loctimer;
-	AORGLUChatterCacheTimer cctimer;
+	AORGLULUDPCacheTimer cctimer;
+
         //csh - instance of LUDP timer
 	AORGLULocationUpdateTimer	lutimer; 
 
