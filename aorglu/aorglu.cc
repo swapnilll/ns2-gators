@@ -1484,10 +1484,7 @@ fprintf(stderr, "LUDP successfully received by %d\n", index);
   *  Add location information from the sending node to the current
   *   node's location cache here
   */
- //TODO: Question: Does this create a new location table or does it add this entry
- //                  to the current nodes already existing location table?
- aorglu_loctable loct; 
- loct.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
+ loctable.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
 
    Packet::free(p);
  }
