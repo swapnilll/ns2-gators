@@ -83,6 +83,9 @@ struct hdr_aorglu_request {
         u_int32_t       rq_dst_seqno;   // Destination Sequence Number
         nsaddr_t        rq_src;         // Source IP Address
         u_int32_t       rq_src_seqno;   // Source Sequence Number
+	double		rq_x;		// Source X coordinate - csh
+	double		rq_y;		// Source Y coordinate - csh
+	double		rq_z;		// Source Z coordinate - csh
 
         double          rq_timestamp;   // when REQUEST sent;
 					// used to compute route discovery latency
@@ -104,7 +107,7 @@ struct hdr_aorglu_request {
 	     + sizeof(nsaddr_t)		// rq_src
 	     + sizeof(u_int32_t);	// rq_src_seqno
   */
-  	sz = 7*sizeof(u_int32_t);
+  	sz = 7*sizeof(u_int32_t) + 3*sizeof(double); //csh - added coordinates to size calc.
   	assert (sz >= 0);
 	return sz;
   }
