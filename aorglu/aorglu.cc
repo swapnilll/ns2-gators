@@ -167,7 +167,7 @@ AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this), cctimer(this),
   LIST_INIT(&bihead);
 
   /*RGK - Initialize the chatter cache*/
-  LIST_INIT(&chead);
+  LIST_INIT(&lchead);
 
   logtarget = 0;
   ifqueue = 0;
@@ -198,7 +198,7 @@ void
 AORGLULocationUpdateTimer::handle(Event*) 
 {
   MobileNode *mn;
-  ChatterEntry *ce;
+  LUDPCacheEntry *lce;
 
   double currX, currY, currZ, dD;
 
@@ -224,12 +224,12 @@ AORGLULocationUpdateTimer::handle(Event*)
     agent->lastY_ = currY;
     agent->lastZ_ = currZ;
     
-    ce = agent->chead.lh_first;
+    lce = agent->lchead.lh_first;
   
     /*rgk - Send ludp to all nodes*/
-    for(;ce;ce=ce->celink.le_next) {
-      fprintf(stderr, "---Sending to %d\n", ce->dst);
-      agent->sendLudp(ce->dst); /*Send LUDP to each node in the ChatterCache.*/
+    for(;lce;lce=lce->lclink.le_next) {
+      fprintf(stderr, "---Sending to %d\n", lce->dst);
+      agent->sendLudp(lce->dst); /*Send LUDP to each node in the LUDPCacheUpdate.*/
     } 
   }
 
@@ -237,10 +237,10 @@ AORGLULocationUpdateTimer::handle(Event*)
 }
 
 void
-AORGLUChatterCacheTimer::handle(Event*) 
+AORGLULUDPCacheTimer::handle(Event*) 
 {
-  agent->cc_purge(); /*Purge the ChatterCache*/
-  Scheduler::instance().schedule(this, &intr, CC_SAVE);
+  agent->ludpcache_purge(); /*Purge the LUDPCache*/
+  Scheduler::instance().schedule(this, &intr, LUDP_CACHE_SAVE);
 }
 
 void
@@ -293,53 +293,52 @@ struct hdr_ip *ih = HDR_IP( (Packet *)p);
 }
 
 /*
- * RGK -  Chatter Cache Management
+ * RGK -  LUDP Cache Management
  */
 void            
-AORGLU::cc_insert(nsaddr_t id)
+AORGLU::ludpcache_insert(nsaddr_t id)
 {
-  ChatterEntry *ce;
+  LUDPCacheEntry *lce;
 
   /*If no existing entry*/
-  if(!(ce = cc_lookup(id))) {
-     ce = new ChatterEntry(id);
-     assert(ce);
-     ce->expire = CURRENT_TIME + CC_SAVE;
-     LIST_INSERT_HEAD(&chead, ce, celink);
+  if(!(lce = ludpcache_lookup(id))) {
+     lce = new LUDPCacheEntry(id); 
+     LIST_INSERT_HEAD(&lchead, lce, lclink);
   }
-  else { /*Found an existing entry*/
-     assert(ce);
-     ce->expire = CURRENT_TIME + CC_SAVE;
-  }
+    
+   assert(lce);
+
+   /*Renew the Expiration Timer*/ 
+   lce->expire = CURRENT_TIME + LUDP_CACHE_SAVE;
 
 }
 
-ChatterEntry *            
-AORGLU::cc_lookup(nsaddr_t id)
+LUDPCacheEntry *            
+AORGLU::ludpcache_lookup(nsaddr_t id)
 {
-  ChatterEntry *ce = chead.lh_first;
+  LUDPCacheEntry *lce = lchead.lh_first;
 
-  for(;ce;ce=ce->celink.le_next) {
-      if(ce->dst == id) {
+  for(;lce;lce=lce->lclink.le_next) {
+      if(lce->dst == id) {
 	break;	
       }
   }
-  return ce;
+  return lce;
 } 
 
 void            
-AORGLU::cc_purge()
+AORGLU::ludpcache_purge()
 {
-  ChatterEntry *ce, *nce; 
+  LUDPCacheEntry *lce, *nlce; 
   double now = CURRENT_TIME;
 
-  for(ce=chead.lh_first; ce; ce = nce) {
-      nce = ce->celink.le_next;
-      if(ce->expire <= now) {
-	LIST_REMOVE(ce, celink);
-	delete ce;      
+  for(lce=lchead.lh_first; lce; lce = nlce) {
+      nlce = lce->lclink.le_next;
+     
+      if(lce->expire <= now) {
+	LIST_REMOVE(lce, lclink);
+	delete lce;      
       } 
-  
    }
 }
 
@@ -522,7 +521,8 @@ AORGLU::local_rt_repair(aorglu_rt_entry *rt, Packet *p) {
 
   // mark the route as under repair 
   rt->rt_flags = RTF_IN_REPAIR;
-
+  
+  /*ALL IT DOES IS SEND A ROUTE REQUEST!!!*/
   sendRequest(rt->rt_dst);
 
   // set up a timer interrupt
@@ -1188,8 +1188,8 @@ struct hdr_ip *ih = HDR_IP(p);
  }
 
  if (ch->ptype() != PT_AORGLU && ch->direction() == hdr_cmn::UP &&
-	((u_int32_t)ih->daddr() == IP_BROADCAST)
-		|| (ih->daddr() == here_.addr_)) {
+	(((u_int32_t)ih->daddr() == IP_BROADCAST)
+		|| (ih->daddr() == here_.addr_))) {
 	dmux_->recv(p,0);
 	return;
  }
@@ -1466,7 +1466,7 @@ if(!rt)
 //----- Definition of recvLudp() -------------------------------//
 void
 AORGLU::recvLudp(Packet *p) {
-struct hdr_ip *ih = HDR_IP(p);
+//struct hdr_ip *ih = HDR_IP(p);
 struct hdr_cmn *ch = HDR_CMN(p);
 struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
 aorglu_rt_entry *rt;
@@ -1517,7 +1517,10 @@ fprintf(stderr, "LUDP successfully received by %d\n", index);
   *  Add location information from the sending node to the current
   *   node's location cache here
   */
- loctable.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
+ //TODO: Question: Does this create a new location table or does it add this entry
+ //                  to the current nodes already existing location table?
+ aorglu_loctable loct; 
+ loct.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
 
    Packet::free(p);
  }
