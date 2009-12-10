@@ -188,6 +188,16 @@ AORGLUBroadcastTimer::handle(Event*) {
 void
 AORGLULocationUpdateTimer::handle(Event*) {
   /*TODO: This should send an LUDP packet to ALL nodes in the ChatterCache*/ 
+  //Not sure exactly how to use the ChatterCache to do this correctly.
+  //Question: Should current node first check to see if it's location has
+  //           changed since the last LUDP was sent from it?? That's how 
+  //           it is described in the AOR-GLU paper.
+  /*
+   Pseudocode:
+   FOR all nodes in current nodes ChatterCache{
+       sendLudp(address of each node);
+   }
+  */
 
   agent->sendLudp(0);
   Scheduler::instance().schedule(this, &intr, LUDP_INTERVAL);
@@ -1380,9 +1390,9 @@ aorglu_rt_entry *rt = rtable.rt_lookup(ipdst);
 if(!rt) 
   return;
 
- fprintf(stderr, "sending LUDP from %d at %.2f", index, Scheduler::instance().clock());
+ fprintf(stderr, "Sending LUDP from %d at %.2f", index, Scheduler::instance().clock());
  assert(rt);
- fprintf(stderr, "...yes\n", index, Scheduler::instance().clock());
+ fprintf(stderr, "...yes\n");
 
   //csh - Get the x, y, and z coordinates from the current node
   //and add them to the packet header.
@@ -1424,13 +1434,13 @@ if(!rt)
 void
 AORGLU::recvLudp(Packet *p) {
 struct hdr_ip *ih = HDR_IP(p);
+struct hdr_cmn *ch = HDR_CMN(p);
 struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
 aorglu_rt_entry *rt;
 
   /*
    * Drop if the current node is the source
    */
-
   if(lu->lu_src == index) {
 #ifdef DEBUG
     fprintf(stderr, "%s: got my own Location Update\n", __FUNCTION__);
@@ -1438,6 +1448,19 @@ aorglu_rt_entry *rt;
     Packet::free(p);
     return;
   } 
+
+  /*
+   * Drop if I am not the destination, or on the
+   *  path to the destination (i.e., the intended
+   *  next hop).
+   */
+  if((lu->lu_dst != index) && (ch->prev_hop_ != index)) {
+#ifdef DEBUG
+    fprintf(stderr, "%s: Unintended recipient of LUDP\n", __FUNCTION__);
+#endif // DEBUG
+     Packet::free(p);
+     return;
+  }
 
 
  /* 
@@ -1461,8 +1484,10 @@ fprintf(stderr, "LUDP successfully received by %d\n", index);
   *  Add location information from the sending node to the current
   *   node's location cache here
   */
- 
-   // ADD CODE HERE!!!  
+ //TODO: Question: Does this create a new location table or does it add this entry
+ //                  to the current nodes already existing location table?
+ aorglu_loctable loct; 
+ loct.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
 
    Packet::free(p);
  }
