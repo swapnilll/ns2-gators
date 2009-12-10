@@ -127,7 +127,8 @@ class AORGLU;
 #define HELLO_INTERVAL          1               // 1000 ms
 #define ALLOWED_HELLO_LOSS      3               // packets
 #define BAD_LINK_LIFETIME       3               // 3000 ms
-#define LUDP_INTERVAL		13		// 3000 ms - csh
+#define LUDP_INTERVAL		5		// 5000 ms - csh
+#define LUDP_RADIUS             50              // 50 units - rgk
 #define MaxHelloInterval        (1.25 * HELLO_INTERVAL)
 #define MinHelloInterval        (0.75 * HELLO_INTERVAL)
 
@@ -235,13 +236,14 @@ LIST_HEAD(aorglu_bcache, BroadcastID);
   recently communicated.
 */
 class ChatterEntry {
+        friend class AORGLULocationUpdateTimer;
 	friend class AORGLU;
   public:
 	ChatterEntry(nsaddr_t id) { dst = id; }
-  private:
+  private: 
 	LIST_ENTRY(ChatterEntry) celink;
 	nsaddr_t dst;
-	double expire;
+ 	double expire;
 };
 
 LIST_HEAD(aorglu_ccache, ChatterEntry);
@@ -348,6 +350,11 @@ class AORGLU: public Agent {
          */
 	void		sendLudp(nsaddr_t ipdst);
 	void		recvLudp(Packet *p);
+
+	/*rgk - coordinates of last ludp update*/
+        double lastX_;
+	double lastY_;
+	double lastZ_;
 
 	/*
 	 * History management

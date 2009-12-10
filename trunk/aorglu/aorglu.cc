@@ -77,6 +77,8 @@ public:
 
 int
 AORGLU::command(int argc, const char*const* argv) {
+  MobileNode *mn;
+
   if(argc == 2) {
   Tcl& tcl = Tcl::instance();
     
@@ -86,10 +88,20 @@ AORGLU::command(int argc, const char*const* argv) {
     }
     
     if(strncasecmp(argv[1], "start", 2) == 0) {
+      /*Set my initial location*/
+      mn = (MobileNode*) Node::get_node_by_address(index);
+      lastX_ = mn->X();
+      lastY_ = mn->Y();
+      lastZ_ = mn->Z();
+
       /*Need to schedule the first event RGK*/
       /*12/09/09 - lutimer causes segmentation fault*/
       lutimer.handle((Event*) 0); /*Init the LUDP timer*/
-      loctimer.handle((Event*) 0); /*Init loc cache timer*/
+      
+      if(LOC_CACHE_EXP != -1) {
+        loctimer.handle((Event*) 0); /*Init loc cache timer*/
+      }
+
       cctimer.handle((Event*) 0);  /*Init chatter cache timer*/
       btimer.handle((Event*) 0);  /*Init broadcast timer*/
 
@@ -171,11 +183,8 @@ AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this), cctimer(this),
 void
 AORGLULocationCacheTimer::handle(Event *)
 {
-  /*Cache entries don't expire when LOC_CACHE_EXP == -1*/
-  #if (LOC_CACHE_EXP != -1)
   agent->loc_purge(); /*Purge expired locations*/
   Scheduler::instance().schedule(this,&intr, FREQUENCY);
-  #endif
 }  
 
 void
@@ -186,20 +195,44 @@ AORGLUBroadcastTimer::handle(Event*) {
 
 //csh - LUDP Timer handler
 void
-AORGLULocationUpdateTimer::handle(Event*) {
-  /*TODO: This should send an LUDP packet to ALL nodes in the ChatterCache*/ 
-  //Not sure exactly how to use the ChatterCache to do this correctly.
-  //Question: Should current node first check to see if it's location has
-  //           changed since the last LUDP was sent from it?? That's how 
-  //           it is described in the AOR-GLU paper.
-  /*
-   Pseudocode:
-   FOR all nodes in current nodes ChatterCache{
-       sendLudp(address of each node);
-   }
-  */
+AORGLULocationUpdateTimer::handle(Event*) 
+{
+  MobileNode *mn;
+  ChatterEntry *ce;
 
-  agent->sendLudp(0);
+  double currX, currY, currZ, dD;
+
+  mn = (MobileNode*) Node::get_node_by_address(agent->index);
+  assert(mn);
+
+  /*Get current location when update occured*/
+  currX = mn->X();
+  currY = mn->Y();
+  currZ = mn->Z();
+  
+  /*Calculate how far we traveled*/
+  dD = sqrt( pow(currX - agent->lastX_, 2) +
+             pow(currY - agent->lastY_, 2) +
+             pow(currZ - agent->lastZ_, 2) );
+  
+  fprintf(stderr, "Node %d : Distance Moved: %lf \n", agent->index, dD); 
+  /*If we moved outside of the allowed radius, we need to perform an update.*/ 
+  if( dD >= LUDP_RADIUS ) { 
+    fprintf(stderr, "--Sending LUDPs...\n"); 
+
+    agent->lastX_ = currX;
+    agent->lastY_ = currY;
+    agent->lastZ_ = currZ;
+    
+    ce = agent->chead.lh_first;
+  
+    /*rgk - Send ludp to all nodes*/
+    for(;ce;ce=ce->celink.le_next) {
+      fprintf(stderr, "---Sending to %d\n", ce->dst);
+      agent->sendLudp(ce->dst); /*Send LUDP to each node in the ChatterCache.*/
+    } 
+  }
+
   Scheduler::instance().schedule(this, &intr, LUDP_INTERVAL);
 }
 
