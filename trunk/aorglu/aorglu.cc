@@ -973,6 +973,9 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
              MY_ROUTE_TIMEOUT,     // Lifetime
              rq->rq_timestamp);    // timestamp
 
+   //csh - Add location entry
+   loctable.loc_add(ih->saddr(), rq->rq_x, rq->rq_y, rq->rq_z);
+
 
    Packet::free(p);
  }
@@ -1118,7 +1121,6 @@ if (ih->daddr() == index) { // If I am the original source
   */
 
 if(ih->daddr() == index || suppress_reply) {
-   //csh - print out coordinates when reply is received
    
    /*RGK - Add location entry*/
    loctable.loc_add(ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
@@ -1376,6 +1378,12 @@ aorglu_rt_entry *rt = rtable.rt_lookup(dst);
 		 rt->rt_req_timeout - CURRENT_TIME);
 #endif	// DEBUG
 	
+  //csh - Get the x,y,z coordinates from the current node
+  //and add them to the packet header.
+  MobileNode *currNode = (MobileNode*) Node::get_node_by_address(index);
+  rq->rq_x = currNode->X();
+  rq->rq_y = currNode->Y();
+  rq->rq_z = currNode->Z();
 
  // Fill out the RREQ packet 
  // ch->uid() = 0;
@@ -1567,10 +1575,7 @@ fprintf(stderr, "LUDP successfully received by %d\n", index);
   *  Add location information from the sending node to the current
   *   node's location cache here
   */
- //TODO: Question: Does this create a new location table or does it add this entry
- //                  to the current nodes already existing location table?
- aorglu_loctable loct; 
- loct.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
+   loctable.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
 
    Packet::free(p);
  }
