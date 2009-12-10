@@ -94,12 +94,10 @@ AORGLU::command(int argc, const char*const* argv) {
       lastY_ = mn->Y();
       lastZ_ = mn->Z();
 
-      /*Need to schedule the first event RGK*/
-      /*12/09/09 - lutimer causes segmentation fault*/
       lutimer.handle((Event*) 0); /*Init the LUDP timer*/
       
       if(LOC_CACHE_EXP != -1) {
-        loctimer.handle((Event*) 0); /*Init loc cache timer*/
+        loctimer.handle((Event*) 0); /*Init loc cache expiration timer*/
       }
 
       cctimer.handle((Event*) 0);  /*Init chatter cache timer*/
@@ -216,6 +214,7 @@ AORGLULocationUpdateTimer::handle(Event*)
              pow(currZ - agent->lastZ_, 2) );
   
   fprintf(stderr, "Node %d : Distance Moved: %lf \n", agent->index, dD); 
+  
   /*If we moved outside of the allowed radius, we need to perform an update.*/ 
   if( dD >= LUDP_RADIUS ) { 
     fprintf(stderr, "--Sending LUDPs...\n"); 
@@ -226,10 +225,16 @@ AORGLULocationUpdateTimer::handle(Event*)
     
     lce = agent->lchead.lh_first;
   
-    /*rgk - Send ludp to all nodes*/
+    /*rgk - Send ludp to actively communicating nodes*/
     for(;lce;lce=lce->lclink.le_next) {
-      fprintf(stderr, "---Sending to %d\n", lce->dst);
-      agent->sendLudp(lce->dst); /*Send LUDP to each node in the LUDPCacheUpdate.*/
+      /*Check if the src has been active*/
+      if(lce->active) {
+        fprintf(stderr, "---Sending to %d\n", lce->dst);
+        agent->sendLudp(lce->dst); /*Send LUDP to each node in the LUDPCacheUpdate.*/
+      }
+      else {
+        fprintf(stderr, "---Link from %d\n has been inactive, No LUDP.\n", lce->dst);
+      }    
     } 
   }
 
@@ -239,7 +244,7 @@ AORGLULocationUpdateTimer::handle(Event*)
 void
 AORGLULUDPCacheTimer::handle(Event*) 
 {
-  agent->ludpcache_purge(); /*Purge the LUDPCache*/
+  agent->ludpcache_checkactive(); /*Check which links are active in the LUDPCache*/
   Scheduler::instance().schedule(this, &intr, LUDP_CACHE_SAVE);
 }
 
@@ -299,6 +304,7 @@ void
 AORGLU::ludpcache_insert(nsaddr_t id)
 {
   LUDPCacheEntry *lce;
+  double now = CURRENT_TIME;
 
   /*If no existing entry*/
   if(!(lce = ludpcache_lookup(id))) {
@@ -308,8 +314,11 @@ AORGLU::ludpcache_insert(nsaddr_t id)
     
    assert(lce);
 
+   /*Mark the entry active*/
+   lce->active = true;
+
    /*Renew the Expiration Timer*/ 
-   lce->expire = CURRENT_TIME + LUDP_CACHE_SAVE;
+   lce->expire = now + LUDP_CACHE_SAVE;
 
 }
 
@@ -327,7 +336,7 @@ AORGLU::ludpcache_lookup(nsaddr_t id)
 } 
 
 void            
-AORGLU::ludpcache_purge()
+AORGLU::ludpcache_checkactive()
 {
   LUDPCacheEntry *lce, *nlce; 
   double now = CURRENT_TIME;
@@ -336,11 +345,41 @@ AORGLU::ludpcache_purge()
       nlce = lce->lclink.le_next;
      
       if(lce->expire <= now) {
-	LIST_REMOVE(lce, lclink);
-	delete lce;      
+        lce->active = false; /*Mark the entry inactive*/	
+        delete lce;      
       } 
    }
 }
+
+/*Update the timer for a node already in the ludp cache*/
+void
+AORGLU::ludpcache_update(nsaddr_t id)
+{
+  LUDPCacheEntry *lce;
+  double now = CURRENT_TIME;
+
+  lce = ludpcache_lookup(id);
+
+  if(lce) {
+   lce->expire = now + LUDP_CACHE_SAVE;
+   lce->active = true;
+  }
+}
+
+/*Delete an entry from the list*/
+void
+AORGLU::ludpcache_delete(nsaddr_t id)
+{
+  LUDPCacheEntry *lce;
+  
+  lce = ludpcache_lookup(id);
+  
+  if(lce) {
+    LIST_REMOVE(lce, lclink);
+  }
+
+}
+
 
 /*
    Broadcast ID Management  Functions
@@ -667,6 +706,10 @@ Packet *p;
  for(rt = rtable.head(); rt; rt = rtn) {  // for each rt entry
    rtn = rt->rt_link.le_next;
    if ((rt->rt_flags == RTF_UP) && (rt->rt_expire < now)) {
+
+   /*rgk - IF a route to a node has expired, just delete it from the LUDP list*/
+      ludpcache_delete(rt->rt_dst);
+ 
    // if a valid route has expired, purge all packets from 
    // send buffer and invalidate the route.                    
 	assert(rt->rt_hops != INFINITY2);
@@ -718,6 +761,9 @@ struct hdr_ip *ih = HDR_IP(p); /*Get the IP header*/
  assert(initialized());
  //assert(p->incoming == 0);
  // XXXXX NOTE: use of incoming flag has been depracated; In order to track direction of pkt flow, direction_ in hdr_cmn is used instead. see packet.h for details.
+
+  /*rgk - If this is a node we are communicating with, we need to update the LUDP timer*/
+  ludpcache_update(ih->saddr());
 
  if(ch->ptype() == PT_AORGLU) { /*If we received a AORGLU packet, process it with recvAORGLU*/
    ih->ttl_ -= 1;
@@ -917,13 +963,17 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
    seqno = max(seqno, rq->rq_dst_seqno)+1;
    if (seqno%2) seqno++;
 
+   /*rgk - Node wants to talk to me, add him to the LUDPCache*/
+   ludpcache_insert(rq->rq_src);
+
    sendReply(rq->rq_src,           // IP Destination
              1,                    // Hop Count
              index,                // Dest IP Address (csh - index is the addr of the current node)
              seqno,                // Dest Sequence Num
              MY_ROUTE_TIMEOUT,     // Lifetime
              rq->rq_timestamp);    // timestamp
- 
+
+
    Packet::free(p);
  }
 
