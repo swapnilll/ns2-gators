@@ -28,6 +28,8 @@ This source was created to use with NS-2.
 #include <lib/bsd-list.h>
 #include <scheduler.h>
 
+#include <aorglu/aorglu_rtable.h>
+
 #define CURRENT_TIME Scheduler::instance().clock()
 
 /*
@@ -58,7 +60,7 @@ class aorglu_loc_entry {
 
 class aorglu_loctable {
  public:
-	aorglu_loctable(); 
+	aorglu_loctable(aorglu_ncache *nbhead); 
 	~aorglu_loctable();
 
         aorglu_loc_entry* head();
@@ -66,8 +68,12 @@ class aorglu_loctable {
         aorglu_loc_entry* loc_add(nsaddr_t id, double, double, double);
         void              loc_delete(nsaddr_t id);
         aorglu_loc_entry* loc_lookup(nsaddr_t id);
-
+        
+        /*Route Maintenance Functions*/
+        nsaddr_t greedy_next_node(double X_, double Y_, double Z_);
+ 
  private:
+        aorglu_ncache *nbhead;
         LIST_HEAD(aorglu_lochead, aorglu_loc_entry) lochead;
 };
 

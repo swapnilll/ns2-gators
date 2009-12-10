@@ -41,7 +41,15 @@ int main()
 }
 #endif
 
-aorglu_loctable::aorglu_loctable()
+/*Route Maintenance Functions*/
+nsaddr_t 
+greedy_next_node(double X_, double Y_, double Z_)
+{
+
+}
+
+/** Need to be given a neighbor cache list*/
+aorglu_loctable::aorglu_loctable(aorglu_ncache *nbhead) : nbhead(nbhead)
 {
   /*Initialize the list*/
   LIST_INIT(&lochead);

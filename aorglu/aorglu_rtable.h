@@ -45,6 +45,7 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 */
 class AORGLU_Neighbor {
         friend class AORGLU;
+        friend class aorglu_loctable;
         friend class aorglu_rt_entry;
  public:
         AORGLU_Neighbor(u_int32_t a) { nb_addr = a; }
