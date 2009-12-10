@@ -244,7 +244,8 @@ class LUDPCacheEntry {
   private: 
 	LIST_ENTRY(LUDPCacheEntry) lclink;
 	nsaddr_t dst;
- 	double expire;
+	bool active; /*Checks if this node has been active*/ 
+  	double expire;
 };
 
 LIST_HEAD(aorglu_ludpcache, LUDPCacheEntry);
@@ -314,7 +315,9 @@ class AORGLU: public Agent {
         */
         void		ludpcache_insert(nsaddr_t id);
 	LUDPCacheEntry*	ludpcache_lookup(nsaddr_t id);
-	void		ludpcache_purge(void);
+	void		ludpcache_checkactive(void);
+        void            ludpcache_update(nsaddr_t id); 
+        void            ludpcache_delete(nsaddr_t id);
 
         /*
          * Broadcast ID Management
