@@ -156,7 +156,7 @@ AORGLU::command(int argc, const char*const* argv) {
 /*RGK - Added loctimer to constructor list*/
 AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this), cctimer(this),
 			  lutimer(this), btimer(this), htimer(this), ntimer(this), 
-			  rtimer(this), lrtimer(this), rqueue() {
+			  rtimer(this), lrtimer(this), loctable(&nbhead), rqueue() {
   index = id;
   seqno = 2;
   bid = 1;
@@ -1575,6 +1575,7 @@ fprintf(stderr, "LUDP successfully received by %d\n", index);
   *  Add location information from the sending node to the current
   *   node's location cache here
   */
+
    loctable.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
 
    Packet::free(p);
