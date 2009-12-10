@@ -206,7 +206,7 @@ union hdr_all_aorglu {
   hdr_aorglu          ah;
   hdr_aorglu_request  rreq;
   hdr_aorglu_reply    rrep;
-  hdr_aorglu_ludp     ludp;
+  hdr_aorglu_ludp     ludp; //csh - added this later. was this causing the seg-fault?
   hdr_aorglu_error    rerr;
   hdr_aorglu_rrep_ack rrep_ack;
 };
