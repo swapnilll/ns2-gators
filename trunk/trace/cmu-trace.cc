@@ -1048,22 +1048,26 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 	case AORGLUTYPE_RERR:
 		if (pt_->tagged()) {
 		    sprintf(pt_->buffer() + offset,
-			    "-aorglu:t %x -aorglu:d %d -aorglu:c RERR ",
+			    "-aorglu:t %x -aorglu:os %d -aorglu:od %d -aorglu:c RERR ",
 			    re->re_type,
-                            re->re_orig_addr);
+                            re->re_orig_src,
+			    re->re_orig_dst);
+
 		} else if (newtrace_) {
 
 		    sprintf(pt_->buffer() + offset,
-			"-P aorglu -Pt 0x%x RERR ",
+			"-P aorglu -Pt 0x%x -Pos %d -Pod %d RERR ",
 			re->re_type,
-                        re->re_orig_addr);
+                        re->re_orig_src,
+			re->re_orig_dst);
 
 		} else {
 
 		    sprintf(pt_->buffer() + offset,
-			"[0x%x %d (RERR)",
+			"[0x%x os: %d  od: %d] (RERR)",
 			re->re_type,
-                        re->re_orig_addr);
+                        re->re_orig_src,
+			re->re_orig_dst);
 		}
                 break;
 
