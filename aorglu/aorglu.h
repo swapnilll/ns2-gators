@@ -260,6 +260,7 @@ class AORGLU: public Agent {
    */
 
         friend class aorglu_rt_entry;
+	friend class aorglu_loctable;
 
 	/*RGK*/
         friend class AORGLULocationCacheTimer;
