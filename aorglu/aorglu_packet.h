@@ -48,6 +48,7 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #define AORGLUTYPE_RREP_ACK  	0x10
 #define AORGLUTYPE_LUDP		0x20 //csh - add Location UpDate Packet (LUDP)
 #define	AORGLUTYPE_REPA		0x40 //csh - add Route Repair Packet (REPA) (also used for RREC)
+#define AORGLUTYPE_REPC         0x80 //rgk - (REPC) type
 
 /*
  * AORGLU Routing Protocol Header Macros
@@ -58,7 +59,8 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #define HDR_AORGLU_ERROR(p)	((struct hdr_aorglu_error*)hdr_aorglu::access(p))
 #define HDR_AORGLU_RREP_ACK(p)	((struct hdr_aorglu_rrep_ack*)hdr_aorglu::access(p))
 #define HDR_AORGLU_LUDP(p)	((struct hdr_aorglu_ludp*)hdr_aorglu::access(p)) //csh - add LUDP macro to access the header
-#define HDR_AORGLU_REPA(p)	((struct hdr_aorglu_repa*)hdr_aorglu::access(p)) //csh - add REPA macro to access the header
+#define HDR_AORGLU_REPA(p)	((struct hdr_aorglu_rep*)hdr_aorglu::access(p)) //csh - add REPA macro to access the header
+#define HDR_AORGLU_REPC(p)      ((struct hdr_aorglu_rep*)hdr_aorglu::access(p)) //rgk - REPC
 
 /*
  * General AORGLU Header - shared by all formats
@@ -206,8 +208,8 @@ struct hdr_aorglu_ludp {
 //--------------------------------------------------------------
 
 //--------- ROUTE REPAIR PACKET HEADER ---------------------
-//csh - Add REPA packet header struct
-struct hdr_aorglu_repa {
+//csh - Add REP packet header struct
+struct hdr_aorglu_rep {
         u_int8_t        rpr_type;       // Packet Type
 	u_int8_t	rpr_greedy;	// Greedy flag. If set to 1 use greedy forwarding.
         nsaddr_t        rpr_dst;        // Destination IP Address
@@ -248,7 +250,7 @@ union hdr_all_aorglu {
   hdr_aorglu_request  rreq;
   hdr_aorglu_reply    rrep;
   hdr_aorglu_ludp     ludp; //csh
-  hdr_aorglu_repa     repa; //csh
+  hdr_aorglu_rep     rep; //csh,rgk
   hdr_aorglu_error    rerr;
   hdr_aorglu_rrep_ack rrep_ack;
 };

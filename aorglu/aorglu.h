@@ -170,6 +170,9 @@ class AORGLULUDPCacheTimer : public Handler
 	Event intr;
 };
 
+
+
+
 //csh - added Location Update Timer prototype
 class AORGLULocationUpdateTimer : public Handler {
 public:
@@ -201,6 +204,27 @@ private:
 class AORGLURouteCacheTimer : public Handler {
 public:
         AORGLURouteCacheTimer(AORGLU* a) : agent(a) {}
+        void	handle(Event*);
+private:
+        AORGLU    *agent;
+	Event	intr;
+};
+
+
+/*Route Maintenance Timers*/
+
+class AORGLU_REPA_RETX_Timer : public Handler {
+public:
+        AORGLU_REPA_RETX_Timer(AORGLU* a) : agent(a) {}
+        void	handle(Event*);
+private:
+        AORGLU    *agent;
+	Event	intr;
+};
+
+class AORGLU_LOC_EXP_Timer : public Handler {
+public:
+        AORGLU_LOC_EXP_Timer(AORGLU* a) : agent(a) {}
         void	handle(Event*);
 private:
         AORGLU    *agent;
@@ -257,6 +281,10 @@ class AORGLU: public Agent {
         friend class aorglu_rt_entry;
 	friend class aorglu_loctable;
 
+        /*Maintenance Timers*/
+        friend class AORGLU_REPA_RETX_Timer;
+        friend class AORGLU_LOC_EXP_Timer;
+
 	/*RGK*/
         friend class AORGLULocationCacheTimer;
 	friend class AORGLULUDPCacheTimer;
@@ -284,10 +312,8 @@ class AORGLU: public Agent {
 		     	  	u_int16_t metric, nsaddr_t nexthop,
 		      		double expire_time);
         void            rt_down(aorglu_rt_entry *rt);
-        void            local_rt_repair(aorglu_rt_entry *rt, Packet *p);
  public:
         void            rt_ll_failed(Packet *p);
-        void            handle_link_failure(nsaddr_t id);
  protected:
         
         void            rt_purge(void);
@@ -326,7 +352,11 @@ class AORGLU: public Agent {
         /*
          * Packet TX Routines
          */
+       
+        //Route Maintenance 
         void            sendRepa(nsaddr_t dst, nsaddr_t next);
+        void            sendRepc(nsaddr_t dst);
+
         void            forward(aorglu_rt_entry *rt, Packet *p, double delay);
         void            sendHello(void);
         void            sendRequest(nsaddr_t dst);
@@ -339,7 +369,11 @@ class AORGLU: public Agent {
         /*
          * Packet RX Routines
          */
+
+        //Route Maintenance
         void            recvRepa(Packet *p);
+        void            recvRepc(Packet *p);
+
         void            recvAORGLU(Packet *p);
         void            recvHello(Packet *p);
         void            recvRequest(Packet *p);
@@ -379,6 +413,11 @@ class AORGLU: public Agent {
         /*
          * Timers
          */
+
+
+        AORGLU_REPA_RETX_Timer    reparetxtimer;
+        AORGLU_LOC_EXP_Timer      locexptimer;
+
 
         /*RGK*/
         AORGLULocationCacheTimer loctimer;
