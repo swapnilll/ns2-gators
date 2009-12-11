@@ -46,6 +46,8 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 /*RGK - Include location cache header*/
 #include <aorglu/aorglu_loctable.h>
 
+#define RERR_REASON_SEND 1
+
 /*
   Allows local repair of routes 
 */
@@ -205,14 +207,7 @@ private:
 	Event	intr;
 };
 
-class AORGLULocalRepairTimer : public Handler {
-public:
-        AORGLULocalRepairTimer(AORGLU* a) : agent(a) {}
-        void	handle(Event*);
-private:
-        AORGLU    *agent;
-	Event	intr;
-};
+//Deleted LocalRepairTimer
 
 
 /*
@@ -271,7 +266,6 @@ class AORGLU: public Agent {
         friend class AORGLUHelloTimer;
         friend class AORGLUNeighborTimer;
         friend class AORGLURouteCacheTimer;
-        friend class AORGLULocalRepairTimer;
 
  public:
         AORGLU(nsaddr_t id);
@@ -295,6 +289,7 @@ class AORGLU: public Agent {
         void            rt_ll_failed(Packet *p);
         void            handle_link_failure(nsaddr_t id);
  protected:
+        
         void            rt_purge(void);
 
         void            enque(aorglu_rt_entry *rt, Packet *p);
@@ -331,6 +326,7 @@ class AORGLU: public Agent {
         /*
          * Packet TX Routines
          */
+        void            sendRepa(nsaddr_t dst, nsaddr_t next);
         void            forward(aorglu_rt_entry *rt, Packet *p, double delay);
         void            sendHello(void);
         void            sendRequest(nsaddr_t dst);
@@ -343,6 +339,7 @@ class AORGLU: public Agent {
         /*
          * Packet RX Routines
          */
+        void            recvRepa(Packet *p);
         void            recvAORGLU(Packet *p);
         void            recvHello(Packet *p);
         void            recvRequest(Packet *p);
@@ -394,7 +391,6 @@ class AORGLU: public Agent {
         AORGLUHelloTimer      htimer;
         AORGLUNeighborTimer   ntimer;
         AORGLURouteCacheTimer rtimer;
-        AORGLULocalRepairTimer lrtimer;
 
 	/*RGK - Location Table*/
 	aorglu_loctable	      loctable;

@@ -60,11 +60,13 @@ class aorglu_path {
 
         aorglu_path_entry* head();
         aorglu_path_entry* path_add(nsaddr_t id, double, double, double);
-        aorglu_loc_entry* path_lookup(nsaddr_t id);
+        bool path_lookup(nsaddr_t id);
 	void path_delete(nsaddr_t id);
+	
 	void print();
-
+        int length() { return this->len; }
  private:
+        int len;
         LIST_HEAD(aorglu_pathhead, aorglu_path_entry) pathhead;
 };
 

@@ -33,6 +33,8 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 
 //#include <config.h>
 //#include "aorglu.h"
+#include <aorglu/aorglu_path.h>
+
 #define AORGLU_MAX_ERRORS 100
 
 
@@ -157,7 +159,9 @@ struct hdr_aorglu_error {
         u_int8_t        DestCount;                 // DestCount
         // List of Unreachable destination IP addresses and sequence numbers
         nsaddr_t        unreachable_dst[AORGLU_MAX_ERRORS];   
-        u_int32_t       unreachable_dst_seqno[AORGLU_MAX_ERRORS];   
+        u_int32_t       unreachable_dst_seqno[AORGLU_MAX_ERRORS];
+	nsaddr_t	orig_addr;	//source address whose packet resulted in error.
+	u_int32_t	reason;		//flag stating reason for error. 0=timed 1=sent message
 
   inline int size() { 
   int sz = 0;
@@ -211,7 +215,7 @@ struct hdr_aorglu_repa {
 	double		rpr_x;		// X coordinate of repair destination
 	double		rpr_y;		// Y coordinate of repair destination
 	double		rpr_z;		// Z coordinate of repair destination
-        double		*rpr_path;
+        aorglu_path     *path; 
 						
   inline int size() { 
   int sz = 0;
@@ -222,7 +226,9 @@ struct hdr_aorglu_repa {
 	     + sizeof(nsaddr_t)		// rpr_src
 	     + sizeof(double)		// rpr_x
 	     + sizeof(double)		// rpr_y
-	     + sizeof(double);		// rpr_z
+	     + sizeof(double)		// rpr_z
+             + path->length() * sizeof(aorglu_path_entry)
+             + sizeof(int);
   
   	assert (sz >= 0);
 	return sz;

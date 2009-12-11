@@ -1,6 +1,6 @@
 /*
 Location Cache
-Copyright (C) 2009 RGK, C.Hett C.Hollensen 
+Copyright (C) 2009 RGK, C.Hett C.Holpensen 
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -25,104 +25,99 @@ This source was created to use with NS-2.
 
 aorglu_path::aorglu_path()
 {
+  this->len = 0;
   /*Initialize the list*/
   LIST_INIT(&pathhead);
 }
 
-aorglu_pathtable::~aorglu_loctable()
+aorglu_path::~aorglu_path()
 {
   aorglu_path_entry *pe;
-  /*Delete the list*/
+
+  /*Depete the list*/
   while((pe=pathhead.lh_first)) {
  	LIST_REMOVE(pe, path_link);
 	#ifdef DEBUG
-	fprintf(stderr,"~Deleting path node %d\n", pe->id);
+	fprintf(stderr,"~Depeting path node %d\n", pe->id);
         #endif
- 	delete le;
+ 	delete pe;
   }
 }
 
 
-aorglu_loc_entry*
-aorglu_loctable::head()
+aorglu_path_entry*
+aorglu_path::head()
 {
   /*Return the first list entry*/
-  return this->lochead.lh_first;
+  return this->pathhead.lh_first;
 }
 
-/**Check if there is a location entry for a node.*/
-aorglu_loc_entry*
-aorglu_loctable::loc_lookup(nsaddr_t id)
+/**Check if there is a pathation entry for a node.*/
+bool
+aorglu_path::path_lookup(nsaddr_t id)
 {
-  aorglu_loc_entry *le = lochead.lh_first;
+  aorglu_path_entry *pe = pathhead.lh_first;
 
   #ifdef DEBUG
-  fprintf(stderr, "loc_lookup: Looking up address.\n");
+  fprintf(stderr, "path_lookup: Looking up address.\n");
   #endif
 
-  for(;le;le = le->loc_link.le_next) {
-	if(le->id == id)
-	  break;
+  for(;pe;pe = pe->path_link.le_next) {
+	if(pe->id == id)
+	  return true;
   }
 
-  return le;
+  return false;
 }
 
-/**Delete a location table entry.*/
+/**Delete a pathation tabpe entry.*/
 void
-aorglu_loctable::loc_delete(nsaddr_t id)
+aorglu_path::path_delete(nsaddr_t id)
 {
-  aorglu_loc_entry *le = lochead.lh_first;
+  aorglu_path_entry *pe = pathhead.lh_first;
  
   #ifdef DEBUG
-  fprintf(stderr, "loc_delete() Deleting list entry!\n");
+  fprintf(stderr, "path_delete() Depeting list entry!\n");
   #endif
 
-  for(;le;le=le->loc_link.le_next) {
-     if(le->id == id){
-       LIST_REMOVE(le,loc_link);
-       delete le;
+  for(;pe;pe=pe->path_link.le_next) {
+     if(pe->id == id){
+       LIST_REMOVE(pe,path_link);
+       this->len--;
+       delete pe;
      } 
   }
 }
 
 /*Add new route entry.*/
-aorglu_loc_entry*
-aorglu_loctable::loc_add(nsaddr_t id, double X, double Y, double Z)
+aorglu_path_entry*
+aorglu_path::path_add(nsaddr_t id, double X, double Y, double Z)
 {
-  aorglu_loc_entry *le;
+  aorglu_path_entry *pe;
   
   #ifdef DEBUG
-  fprintf(stderr, "loc_add() Adding new list entry.\n");
+  fprintf(stderr, "path_add() Adding new list entry.\n");
   #endif
 
-  /*Check to see if there is already a loc-entry*/
-  le = loc_lookup(id);
+  pe = new aorglu_path_entry();
+  LIST_INSERT_HEAD(&pathhead, pe, path_link); 
+  pe->id = id;
 
-  /*No entry, so we make a new one!*/
-  if(le == NULL) {
-     le = new aorglu_loc_entry();
-     LIST_INSERT_HEAD(&lochead, le, loc_link); 
-     le->id = id;
-  }
+  pe->X_ = X; 
+  pe->Y_ = Y;
+  pe->Z_ = Z;
+  
+  this->len++;
 
-  /*Update the node location information*/
-  le->X_ = X;
-  le->Y_ = Y;
-  le->Z_ = Z;
-
-  /*Update the entry expiration timer*/
-  le->loc_expire = (CURRENT_TIME + LOC_CACHE_EXP);
- 
-  return le;
+  return pe;
 }
 
 void
-aorglu_loctable::print()
+aorglu_path::print()
 {
-  aorglu_loc_entry *le = lochead.lh_first;
-  fprintf(stderr,"%s%9s%5s%10s%10s\n", "Node", "Expire", "X", "Y", "Z"); 
-  for(;le;le=le->loc_link.le_next) {
-    fprintf(stderr, "%d%10.2lf%10.2lf%10.2lf%10.2lf\n", le->id, le->loc_expire, le->X_, le->Y_, le->Z_); 
+  aorglu_path_entry *pe = pathhead.lh_first;
+  fprintf(stderr,"%s%9s%10s%10s\n", "Node", "X", "Y", "Z"); 
+  for(;pe;pe=pe->path_link.le_next) {
+    fprintf(stderr, "%d%10.2lf%10.2lf%10.2lf\n", pe->id, pe->X_, pe->Y_, pe->Z_); 
   }
 }
