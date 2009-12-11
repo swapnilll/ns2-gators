@@ -442,15 +442,20 @@ double total_latency = 0.0;
 //CALLED BY PACKET WHEN THE TRANSMISSION FAILS AT THE LINK LAYER. 
 static void
 aorglu_rt_failed_callback(Packet *p, void *arg) {
-  fprintf(stderr,"Route Failure Detected.\n");
   ((AORGLU*) arg)->rt_ll_failed(p);
 }
 
 void
 AORGLU::rt_ll_failed(Packet *p) {
-  sendError(p,false);
- /*We arent using link layer detection, so drop the packet*/
- drop(p, DROP_RTR_MAC_CALLBACK);
+   struct hdr_ip *ih = HDR_IP(p);
+#ifdef DEBUG
+   fprintf(stderr,"Route Failure Detected when trying to send from %d to %d. index=%d\n", ih->saddr(), ih->daddr(),index);
+#endif
+   /*We arent using link layer detection, so drop the packet
+    after sending the RERR packet*/
+   sendError(ih->saddr());
+
+   drop(p, DROP_RTR_MAC_CALLBACK);
 }
 /////////////////////////////////////////////////////////////////////
 
@@ -534,30 +539,14 @@ aorglu_rt_entry *rt;
   * I don't have a route.
   */
  else {
- Packet *rerr = Packet::alloc();
- struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(rerr);
- struct hdr_ip *ih = HDR_IP(p);
 
- /* 
-  * For now, drop the packet and send error upstream.
-  * Now the route errors are broadcast to upstream
-  * neighbors - Mahesh 09/11/99
-  */	
- 
-   assert (rt->rt_flags == RTF_DOWN);
-   re->DestCount = 0;
-   re->unreachable_dst[re->DestCount] = rt->rt_dst;
-   re->unreachable_dst_seqno[re->DestCount] = rt->rt_seqno;
-   re->DestCount += 1;
 #ifdef DEBUG
    fprintf(stderr, "%s: sending RERR...\n", __FUNCTION__);
 #endif
 
-   /*Error here means it was caused by a packet being set
-     so set the flag and the originating address*/
-   re->orig_addr = ih->saddr(); /*Get src address to send to*/
-   re->reason = RERR_REASON_SEND;
-   sendError(rerr, false);
+   /*Error here means there is no route to the destination,
+     so set the originating address and send the RERR packet*/
+   sendError(ih->saddr());
 
    drop(p, DROP_RTR_NO_ROUTE);
  }
@@ -1025,24 +1014,64 @@ void
 AORGLU::recvError(Packet *p) 
 {
   struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_cmn *ch = HDR_CMN(p);
   struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
   struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
   aorglu_rt_entry *rt;
-  u_int8_t i;
-  Packet *rerr = Packet::alloc();
-  Packet *pkt;
-  struct hdr_aorglu_error *nre = HDR_AORGLU_ERROR(rerr);
+  nsaddr_t nexthopid;
 
-  if(lu->lu_dst == index) {
-        fprintf(stderr, "Node %d: Recieved Route Error Packet\n", index);
-        Packet::free(p);
+  /*
+   * Drop if the current node is the source
+   */
+  if(ih->saddr() == index) {
+#ifdef DEBUG
+    fprintf(stderr, "%s: got my own RERR\n", __FUNCTION__);
+#endif // DEBUG
+    Packet::free(p);
+    return;
+  } 
+
+  /*
+   * Drop if I am not the destination, or on the
+   *  path to the destination (i.e., the intended
+   *  next hop).
+   */
+  if((re->re_orig_addr != index) && (ch->next_hop_ != index)) {
+#ifdef DEBUG
+    fprintf(stderr, "%s: Unintended recipient of RERR\n", __FUNCTION__);
+#endif // DEBUG
+     Packet::free(p);
+     return;
   }
+
+
+ /* 
+  * Either this is the destination, or the Location Updated must be forwarded
+  */
+
+ // First check if I am the destination ..
+ if(re->re_orig_addr == index) {
+
+#ifdef DEBUG
+   fprintf(stderr, "%d - %s: Location Update successfully received\n",
+                   index, __FUNCTION__);
+#endif // DEBUG
+   /*If so, prepare to send the REPA packet using greedy forwarding*/
+     fprintf(stderr, "RERR successfully received by %d\n", index);
+   //aorglu_loc_entry *le = loctable.loc_lookup(ih->saddr());
+   //nexthopid = loctable.greedy_next_node(le->X_, le->Y_, le->Z_);
+   //sendRepa(ih->saddr(), nexthopid); 
+  }
+  
+  // Otherwise forward the packet
   else {
-     fprintf(stderr, "Node %d: Forwarding Route Error Packet\n", index);
-     rt = rtable.rt_lookup(lu->lu_dst);
-     forward(rt, p, DELAY);
-  }
+   /*Look up the next-hop info from the route table and forward it*/
+   rt = rtable.rt_lookup(re->re_orig_addr);
+   fprintf(stderr, "Node %d fowarding to node %d\n", index, rt->rt_nexthop);
+   forward(rt, p, DELAY);
 
+  }
+  Packet::free(p);
 }
 
 
@@ -1309,7 +1338,6 @@ if(!rt)
 
  fprintf(stderr, "Sending LUDP from %d at %.2f", index, Scheduler::instance().clock());
  assert(rt);
- fprintf(stderr, "...yes\n");
 
   //csh - Get the x, y, and z coordinates from the current node
   //and add them to the packet header.
@@ -1358,6 +1386,7 @@ AORGLU::recvLudp(Packet *p)
 
   fprintf(stderr, "Node %d got a ludp packet\n", index);
 
+
   if(lu->lu_dst == index) { /*This is my LUDP*/
      
      fprintf(stderr, "%d - %s: Location Update successfully received\n", index, __FUNCTION__);
@@ -1378,7 +1407,6 @@ AORGLU::recvLudp(Packet *p)
      /*Just throw out the packet.*/
      Packet::free(p);
    }
-
 }
 //------END of recvLudp(...)---------------------------------------//
 
@@ -1457,11 +1485,8 @@ AORGLU::recvRepa(Packet *p)
 void
 AORGLU::sendRepc(nsaddr_t dst) 
 {
-
   fprintf(stderr, "Node %d: Sending Repc packet!\n", index);
-
 }
-
 //------END of sendRepc(...)---------------------------------------//
 
 //----- Definition of recvRepc() -------------------------------//
@@ -1478,36 +1503,43 @@ AORGLU::recvRepc(Packet *p)
 
 
 void
-AORGLU::sendError(Packet *p,  bool jitter) {
-struct hdr_cmn *ch = HDR_CMN(p);
-struct hdr_ip *ih = HDR_IP(p);
-struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
-    
-fprintf(stderr, "sending Error from %d at %.2f\n", index, Scheduler::instance().clock());
+AORGLU::sendError(nsaddr_t dst) {
+ Packet *p = Packet::alloc();
+ struct hdr_cmn *ch = HDR_CMN(p);
+ struct hdr_ip *ih = HDR_IP(p);
+ struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
+ aorglu_rt_entry *rt = rtable.rt_lookup(dst);
+ 
+ if(!rt)
+   return;
 
+ //update RERR packet header info
  re->re_type = AORGLUTYPE_RERR;
-
- // ch->uid() = 0;
+ re->re_orig_addr = dst;
+   
+ //update common header info
  ch->ptype() = PT_AORGLU;
  ch->size() = IP_HDR_LEN + re->size();
  ch->iface() = -2;
  ch->error() = 0;
- ch->addr_type() = NS_AF_NONE;
- ch->next_hop_ = 0;
+ ch->addr_type() = NS_AF_INET;
+ ch->next_hop_ = rt->rt_nexthop;
  ch->prev_hop_ = index;          // AORGLU hack
- ch->direction() = hdr_cmn::DOWN;       //important: change the packet's direction
+ ch->direction() = hdr_cmn::DOWN;
 
+ //update the IP packet header info
  ih->saddr() = index;
- ih->daddr() = IP_BROADCAST;
+ ih->daddr() = dst;
  ih->sport() = RT_PORT;
  ih->dport() = RT_PORT;
- ih->ttl_ = 1;
+ ih->ttl_ = NETWORK_DIAMETER;
 
- // Do we need any jitter? Yes
- if (jitter)
- 	Scheduler::instance().schedule(target_, p, 0.01*Random::uniform());
- else
- 	Scheduler::instance().schedule(target_, p, 0.0);
+#ifdef DEBUG
+ fprintf(stderr, "Node %d sending RERR to Node %d\n", index, dst);
+#endif
+
+ //schedule the REPA packet to be sent
+ Scheduler::instance().schedule(target_, p, 0);
 
 }
 

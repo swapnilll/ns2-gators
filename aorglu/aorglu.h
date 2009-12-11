@@ -364,7 +364,7 @@ class AORGLU: public Agent {
 	void            sendReply(nsaddr_t ipdst, u_int32_t hop_count,
                                   nsaddr_t rpdst, u_int32_t rpseq,
                                   u_int32_t lifetime, double timestamp);
-        void            sendError(Packet *p, bool jitter = true);
+        void            sendError(nsaddr_t dst);
                                           
         /*
          * Packet RX Routines
