@@ -59,8 +59,8 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #define HDR_AORGLU_ERROR(p)	((struct hdr_aorglu_error*)hdr_aorglu::access(p))
 #define HDR_AORGLU_RREP_ACK(p)	((struct hdr_aorglu_rrep_ack*)hdr_aorglu::access(p))
 #define HDR_AORGLU_LUDP(p)	((struct hdr_aorglu_ludp*)hdr_aorglu::access(p)) //csh - add LUDP macro to access the header
-#define HDR_AORGLU_REPA(p)	((struct hdr_aorglu_rep*)hdr_aorglu::access(p)) //csh - add REPA macro to access the header
-#define HDR_AORGLU_REPC(p)      ((struct hdr_aorglu_rep*)hdr_aorglu::access(p)) //rgk - REPC
+#define HDR_AORGLU_REPA(p)	((struct hdr_aorglu_repa*)hdr_aorglu::access(p)) //csh - add REPA macro to access the header
+#define HDR_AORGLU_REPC(p)      ((struct hdr_aorglu_repa*)hdr_aorglu::access(p)) //rgk - REPC
 
 /*
  * General AORGLU Header - shared by all formats
@@ -157,14 +157,14 @@ struct hdr_aorglu_reply {
 
 struct hdr_aorglu_error {
         u_int8_t        re_type;        // Type
-	nsaddr_t	re_orig_addr;	// original address whose sent packet resulted in error.
-
+	nsaddr_t	re_orig_src;	// original address whose sent packet resulted in error.
+        nsaddr_t        re_orig_dst;    // orginial address being sent to that cannot be reached! 
 
   inline int size() { 
   int sz = 0;
 
   	sz = sizeof(u_int8_t)		// type
-	     + sizeof(nsaddr_t); 	// orig_addr
+	     + 2*sizeof(nsaddr_t); 	// orig_addr
 
 	assert(sz);
         return sz;
@@ -201,7 +201,7 @@ struct hdr_aorglu_ludp {
 
 //--------- ROUTE REPAIR PACKET HEADER ---------------------
 //csh - Add REP packet header struct
-struct hdr_aorglu_rep {
+struct hdr_aorglu_repa {
         u_int8_t        rpr_type;       // Packet Type
 	u_int8_t	rpr_greedy;	// Greedy flag. If set to 1 use greedy forwarding.
         nsaddr_t        rpr_dst;        // Destination IP Address
@@ -242,7 +242,7 @@ union hdr_all_aorglu {
   hdr_aorglu_request  rreq;
   hdr_aorglu_reply    rrep;
   hdr_aorglu_ludp     ludp; //csh
-  hdr_aorglu_rep     rep; //csh,rgk
+  hdr_aorglu_repa     repa; //csh,rgk
   hdr_aorglu_error    rerr;
   hdr_aorglu_rrep_ack rrep_ack;
 };
