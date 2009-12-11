@@ -437,20 +437,22 @@ double total_latency = 0.0;
 //CALLED BY PACKET WHEN THE TRANSMISSION FAILS AT THE LINK LAYER. 
 static void
 aorglu_rt_failed_callback(Packet *p, void *arg) {
-  ((AORGLU*) arg)->rt_ll_failed(p);
+    ((AORGLU*) arg)->rt_ll_failed(p);
 }
 
 void
 AORGLU::rt_ll_failed(Packet *p) {
-   struct hdr_ip *ih = HDR_IP(p);
-//#ifdef DEBUG
-   fprintf(stderr,"Route Failure Detected when trying to send from %d to %d. index=%d\n", ih->saddr(), ih->daddr(),index);
-//#endif
-   /*We arent using link layer detection, so drop the packet
-    after sending the RERR packet*/
-   sendError(ih->saddr(), ih->daddr());
+  struct hdr_cmn *ch = HDR_CMN(p);
+  struct hdr_ip *ih = HDR_IP(p);
 
+  /*No longer a neighbor, so its a route down!!*/
+    fprintf(stderr, "%s : ROUTE Fail from %d TO %d Detected!\n", __FUNCTION__, index, ch->next_hop_);
+    sendError(ih->saddr(), ih->daddr());
+  }
+  else { /*LinkLayer Fail*/
+    fprintf(stderr, "%s : LinkLayer Fail Detected!\n", __FUNCTION__);
    drop(p, DROP_RTR_MAC_CALLBACK);
+  } 
 }
 /////////////////////////////////////////////////////////////////////
 
