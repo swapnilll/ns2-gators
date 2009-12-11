@@ -44,6 +44,8 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 //#define DEBUG
 //#define ERROR
 
+#define test(a,...) fprintf(stderr,a,__VA_ARGS__)
+
 #ifdef DEBUG
 static int extra_route_reply = 0;
 static int limit_route_request = 0;
@@ -154,7 +156,7 @@ AORGLU::command(int argc, const char*const* argv) {
 */
 
 /*RGK - Added loctimer to constructor list*/
-AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this), cctimer(this),
+AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), reparetxtimer(this), locexptimer(this), loctimer(this), cctimer(this),
 			  lutimer(this), btimer(this), htimer(this), ntimer(this), 
 			  rtimer(this), loctable(this), rqueue() {
   index = id;
@@ -176,6 +178,17 @@ AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this), cctimer(this),
 */
 
 #define FREQUENCY 0.5
+
+/*Maintenance Timers*/
+void
+AORGLU_LOC_EXP_Timer::handle(Event *)
+{
+}
+
+void
+AORGLU_REPA_RETX_Timer::handle(Event *)
+{
+}
 
 /*RGK - Location Cache Timer*/
 void
@@ -435,6 +448,7 @@ aorglu_rt_failed_callback(Packet *p, void *arg) {
 
 void
 AORGLU::rt_ll_failed(Packet *p) {
+  sendError(p,false);
  /*We arent using link layer detection, so drop the packet*/
  drop(p, DROP_RTR_MAC_CALLBACK);
 }
@@ -726,7 +740,15 @@ AORGLU::recvAORGLU(Packet *p) {
  case AORGLUTYPE_LUDP:
    recvLudp(p);
    break;
-        
+
+ case AORGLUTYPE_REPA:
+   recvRepa(p);
+   break;
+
+ case AORGLUTYPE_REPC:
+   recvRepc(p);
+   break;
+ 
  default:
    fprintf(stderr, "Invalid AORGLU type (%x)\n", ah->ah_type);
    exit(1);
@@ -1004,14 +1026,23 @@ AORGLU::recvError(Packet *p)
 {
   struct hdr_ip *ih = HDR_IP(p);
   struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
+  struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
   aorglu_rt_entry *rt;
   u_int8_t i;
   Packet *rerr = Packet::alloc();
   Packet *pkt;
   struct hdr_aorglu_error *nre = HDR_AORGLU_ERROR(rerr);
 
-  //do new RERR handling 
-  Packet::free(p);
+  if(lu->lu_dst == index) {
+        fprintf(stderr, "Node %d: Recieved Route Error Packet\n", index);
+        Packet::free(p);
+  }
+  else {
+     fprintf(stderr, "Node %d: Forwarding Route Error Packet\n", index);
+     rt = rtable.rt_lookup(lu->lu_dst);
+     forward(rt, p, DELAY);
+  }
+
 }
 
 
@@ -1318,73 +1349,35 @@ if(!rt)
 
 //----- Definition of recvLudp() -------------------------------//
 void
-AORGLU::recvLudp(Packet *p) {
-//struct hdr_ip *ih = HDR_IP(p);
-struct hdr_cmn *ch = HDR_CMN(p);
-struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
-aorglu_rt_entry *rt;
+AORGLU::recvLudp(Packet *p) 
+{
+  //struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_cmn *ch = HDR_CMN(p);
+  struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
+  aorglu_rt_entry *rt;
 
-  /*
-   * Drop if the current node is the source
-   */
-  if(lu->lu_src == index) {
-#ifdef DEBUG
-    fprintf(stderr, "%s: got my own Location Update\n", __FUNCTION__);
-#endif // DEBUG
-    Packet::free(p);
-    return;
-  } 
+  fprintf(stderr, "Node %d got a ludp packet\n", index);
 
-  /*
-   * Drop if I am not the destination, or on the
-   *  path to the destination (i.e., the intended
-   *  next hop).
-   */
-  if((lu->lu_dst != index) && (ch->prev_hop_ != index)) {
-#ifdef DEBUG
-    fprintf(stderr, "%s: Unintended recipient of LUDP\n", __FUNCTION__);
-#endif // DEBUG
+  if(lu->lu_dst == index) { /*This is my LUDP*/
+     
+     fprintf(stderr, "%d - %s: Location Update successfully received\n", index, __FUNCTION__);
+
+     //csh
+     fprintf(stderr, "LUDP successfully received by %d\n", index);
+
+     loctable.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
      Packet::free(p);
-     return;
-  }
-
-
- /* 
-  * Either this is the destination, or the Location Updated must be forwarded
-  */
- // Look up the next-hop info from the route table
- rt = rtable.rt_lookup(lu->lu_dst);
-
- // First check if I am the destination ..
- if(lu->lu_dst == index) {
-
-#ifdef DEBUG
-   fprintf(stderr, "%d - %s: Location Update successfully received\n",
-                   index, __FUNCTION__);
-#endif // DEBUG
-  
-//csh
-fprintf(stderr, "LUDP successfully received by %d\n", index);
-
- /*
-  *  Add location information from the sending node to the current
-  *   node's location cache here
-  */
-
-   loctable.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
-
-   Packet::free(p);
- }
-
- /*
-  * Not the destination, so forward the Location Update.
-  */
- else {
-   //Note: The recvReply function does stuff with the queue here before forwarding,
-   //       not sure if that should be done here as well.
-   fprintf(stderr, "LUDP packet being forwarded by %d\n", index);
-   forward(rt, p, DELAY);
- }
+   }
+   else if(ch->next_hop_ == index) { /*Not my LUDP, but I was the next hop !*/
+       // Look up the next-hop info from the route table
+     rt = rtable.rt_lookup(lu->lu_dst);
+     fprintf(stderr, "LUDP packet being forwarded by %d\n", index);
+     forward(rt, p, DELAY);
+   }
+   else { /*Not my LUDP and I shouldn't forward it!*/
+     /*Just throw out the packet.*/
+     Packet::free(p);
+   }
 
 }
 //------END of recvLudp(...)---------------------------------------//
@@ -1397,7 +1390,7 @@ AORGLU::sendRepa(nsaddr_t ipdst, nsaddr_t nexthop) {
 Packet *p = Packet::alloc();
 struct hdr_cmn *ch = HDR_CMN(p);
 struct hdr_ip *ih = HDR_IP(p);
-struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
+struct hdr_aorglu_rep *rpr = HDR_AORGLU_REPA(p);
 
  fprintf(stderr, "Sending REPA from %d at %.2f", index, Scheduler::instance().clock());
  assert(rt);
@@ -1450,77 +1443,38 @@ struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
 
 //----- Definition of recvRepa() -------------------------------//
 void
-AORGLU::recvRepa(Packet *p) {
-#if 0
-//struct hdr_ip *ih = HDR_IP(p);
-struct hdr_cmn *ch = HDR_CMN(p);
-struct hdr_aorglu_ludp *rpr = HDR_AORGLU_LUDP(p);
-aorglu_rt_entry *rt;
-
-  /*
-   * Drop if the current node is the source
-   */
-  if(lu->lu_src == index) {
-#ifdef DEBUG
-    fprintf(stderr, "%s: got my own Location Update\n", __FUNCTION__);
-#endif // DEBUG
-    Packet::free(p);
-    return;
-  } 
-
-  /*
-   * Drop if I am not the destination, or on the
-   *  path to the destination (i.e., the intended
-   *  next hop).
-   */
-  if((lu->lu_dst != index) && (ch->prev_hop_ != index)) {
-#ifdef DEBUG
-    fprintf(stderr, "%s: Unintended recipient of LUDP\n", __FUNCTION__);
-#endif // DEBUG
-     Packet::free(p);
-     return;
-  }
-
-
- /* 
-  * Either this is the destination, or the Location Updated must be forwarded
-  */
- // Look up the next-hop info from the route table
- rt = rtable.rt_lookup(lu->lu_dst);
-
- // First check if I am the destination ..
- if(lu->lu_dst == index) {
-
-#ifdef DEBUG
-   fprintf(stderr, "%d - %s: Location Update successfully received\n",
-                   index, __FUNCTION__);
-#endif // DEBUG
-  
-//csh
-fprintf(stderr, "LUDP successfully received by %d\n", index);
-
- /*
-  *  Add location information from the sending node to the current
-  *   node's location cache here
-  */
-
-   loctable.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
-
-   Packet::free(p);
- }
-
- /*
-  * Not the destination, so forward the Location Update.
-  */
- else {
-   //Note: The recvReply function does stuff with the queue here before forwarding,
-   //       not sure if that should be done here as well.
-   fprintf(stderr, "LUDP packet being forwarded by %d\n", index);
-   forward(rt, p, DELAY);
- }
-#endif
+AORGLU::recvRepa(Packet *p)
+{
+  struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_cmn *ch = HDR_CMN(p);
+  struct hdr_aorglu_ludp *rpr = HDR_AORGLU_LUDP(p);
+  fprintf(stderr, "Node %d: Recieved Repa packet!\n", index);
+  Packet::free(p);
 }
-//------END of recvLudp(...)---------------------------------------//
+//------END of sendRepa(...)---------------------------------------//
+
+//----- Definition of sendRepc() -------------------------------//
+void
+AORGLU::sendRepc(nsaddr_t dst) 
+{
+
+  fprintf(stderr, "Node %d: Sending Repc packet!\n", index);
+
+}
+
+//------END of sendRepc(...)---------------------------------------//
+
+//----- Definition of recvRepc() -------------------------------//
+void
+AORGLU::recvRepc(Packet *p) 
+{
+  struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_cmn *ch = HDR_CMN(p);
+  struct hdr_aorglu_ludp *rpr = HDR_AORGLU_LUDP(p);
+  fprintf(stderr, "Node %d: Recieved Repc. packet!\n", index);
+  Packet::free(p);
+}
+//------END of recvRepc(...)---------------------------------------//
 
 
 void
@@ -1529,13 +1483,9 @@ struct hdr_cmn *ch = HDR_CMN(p);
 struct hdr_ip *ih = HDR_IP(p);
 struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
     
-#ifdef ERROR
 fprintf(stderr, "sending Error from %d at %.2f\n", index, Scheduler::instance().clock());
-#endif // DEBUG
 
  re->re_type = AORGLUTYPE_RERR;
-//re->reserved[0] = 0x00; re->reserved[1] = 0x00;
- // DestCount and list of unreachable destinations are already filled
 
  // ch->uid() = 0;
  ch->ptype() = PT_AORGLU;
@@ -1560,7 +1510,6 @@ fprintf(stderr, "sending Error from %d at %.2f\n", index, Scheduler::instance().
  	Scheduler::instance().schedule(target_, p, 0.0);
 
 }
-
 
 /*
    Neighbor Management Functions
