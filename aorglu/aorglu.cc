@@ -100,7 +100,7 @@ AORGLU::command(int argc, const char*const* argv) {
         loctimer.handle((Event*) 0); /*Init loc cache expiration timer*/
       }
 
-      cctimer.handle((Event*) 0);  /*Init chatter cache timer*/
+      cctimer.handle((Event*) 0);  /*Init LUDP cache timer*/
       btimer.handle((Event*) 0);  /*Init broadcast timer*/
 
 #ifndef AORGLU_LINK_LAYER_DETECTION
@@ -156,7 +156,7 @@ AORGLU::command(int argc, const char*const* argv) {
 /*RGK - Added loctimer to constructor list*/
 AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this), cctimer(this),
 			  lutimer(this), btimer(this), htimer(this), ntimer(this), 
-			  rtimer(this), lrtimer(this), loctable(this), rqueue() {
+			  rtimer(this), loctable(this), rqueue() {
   index = id;
   seqno = 2;
   bid = 1;
@@ -269,33 +269,7 @@ AORGLURouteCacheTimer::handle(Event*) {
   Scheduler::instance().schedule(this, &intr, FREQUENCY);
 }
 
-void
-AORGLULocalRepairTimer::handle(Event* p)  {  // SRD: 5/4/99
-aorglu_rt_entry *rt;
-struct hdr_ip *ih = HDR_IP( (Packet *)p);
-
-   /* you get here after the timeout in a local repair attempt */
-   /*	fprintf(stderr, "%s\n", __FUNCTION__); */
-
-
-    rt = agent->rtable.rt_lookup(ih->daddr());
-	
-    if (rt && rt->rt_flags != RTF_UP) {
-    // route is yet to be repaired
-    // I will be conservative and bring down the route
-    // and send route errors upstream.
-    /* The following assert fails, not sure why */
-    /* assert (rt->rt_flags == RTF_IN_REPAIR); */
-		
-      //rt->rt_seqno++;
-      agent->rt_down(rt);
-      // send RERR
-#ifdef DEBUG
-      fprintf(stderr,"Node %d: Dst - %d, failed local repair\n",index, rt->rt_dst);
-#endif      
-    }
-    Packet::free((Packet *)p);
-}
+//rgk - deleted local repair timer
 
 /*
  * RGK -  LUDP Cache Management
@@ -451,122 +425,20 @@ double total_latency = 0.0;
   Link Failure Management Functions
 */
 
+/////////////////////////////////////////////////////////////////////
+//CALLED BY PACKET WHEN THE TRANSMISSION FAILS AT THE LINK LAYER. 
 static void
 aorglu_rt_failed_callback(Packet *p, void *arg) {
+  fprintf(stderr,"Route Failure Detected.\n");
   ((AORGLU*) arg)->rt_ll_failed(p);
 }
 
-/*
- * This routine is invoked when the link-layer reports a route failed.
- */
 void
 AORGLU::rt_ll_failed(Packet *p) {
-//struct hdr_cmn *ch = HDR_CMN(p);
-//struct hdr_ip *ih = HDR_IP(p);
-//aorglu_rt_entry *rt;
-//nsaddr_t broken_nbr = ch->next_hop_;
-
-#ifndef AORGLU_LINK_LAYER_DETECTION
+ /*We arent using link layer detection, so drop the packet*/
  drop(p, DROP_RTR_MAC_CALLBACK);
-#else 
-
- /*
-  * Non-data packets and Broadcast Packets can be dropped.
-  */
-  if(! DATA_PACKET(ch->ptype()) ||
-     (u_int32_t) ih->daddr() == IP_BROADCAST) {
-    drop(p, DROP_RTR_MAC_CALLBACK);
-    return;
-  }
-  log_link_broke(p);
-	if((rt = rtable.rt_lookup(ih->daddr())) == 0) {
-    drop(p, DROP_RTR_MAC_CALLBACK);
-    return;
-  }
-  log_link_del(ch->next_hop_);
-
-#ifdef AORGLU_LOCAL_REPAIR
-  /* if the broken link is closer to the dest than source, 
-     attempt a local repair. Otherwise, bring down the route. */
-
-
-  if (ch->num_forwards() > rt->rt_hops) {
-    local_rt_repair(rt, p); // local repair
-    // retrieve all the packets in the ifq using this link,
-    // queue the packets for which local repair is done, 
-    return;
-  }
-  else	
-#endif // LOCAL REPAIR	
-
-  {
-    drop(p, DROP_RTR_MAC_CALLBACK);
-    // Do the same thing for other packets in the interface queue using the
-    // broken link -Mahesh
-while((p = ifqueue->filter(broken_nbr))) {
-     drop(p, DROP_RTR_MAC_CALLBACK);
-    }	
-    nb_delete(broken_nbr);
-  }
-
-#endif // LINK LAYER DETECTION
 }
-
-void
-AORGLU::handle_link_failure(nsaddr_t id) {
-aorglu_rt_entry *rt, *rtn;
-Packet *rerr = Packet::alloc();
-struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(rerr);
-
- re->DestCount = 0;
- for(rt = rtable.head(); rt; rt = rtn) {  // for each rt entry
-   rtn = rt->rt_link.le_next; 
-   if ((rt->rt_hops != INFINITY2) && (rt->rt_nexthop == id) ) {
-     assert (rt->rt_flags == RTF_UP);
-     assert((rt->rt_seqno%2) == 0);
-     rt->rt_seqno++;
-     re->unreachable_dst[re->DestCount] = rt->rt_dst;
-     re->unreachable_dst_seqno[re->DestCount] = rt->rt_seqno;
-#ifdef DEBUG
-     fprintf(stderr, "%s(%f): %d\t(%d\t%u\t%d)\n", __FUNCTION__, CURRENT_TIME,
-		     index, re->unreachable_dst[re->DestCount],
-		     re->unreachable_dst_seqno[re->DestCount], rt->rt_nexthop);
-#endif // DEBUG
-     re->DestCount += 1;
-     rt_down(rt);
-   }
-   // remove the lost neighbor from all the precursor lists
-   rt->pc_delete(id);
- }   
-
- if (re->DestCount > 0) {
-#ifdef DEBUG
-   fprintf(stderr, "%s(%f): %d\tsending RERR...\n", __FUNCTION__, CURRENT_TIME, index);
-#endif // DEBUG
-   sendError(rerr, false);
- }
- else {
-   Packet::free(rerr);
- }
-}
-
-void
-AORGLU::local_rt_repair(aorglu_rt_entry *rt, Packet *p) {
-#ifdef DEBUG
-  fprintf(stderr,"%s: Dst - %d\n", __FUNCTION__, rt->rt_dst); 
-#endif  
-  // Buffer the packet 
-  rqueue.enque(p);
-
-  // mark the route as under repair 
-  rt->rt_flags = RTF_IN_REPAIR;
-  
-  /*ALL IT DOES IS SEND A ROUTE REQUEST!!!*/
-  sendRequest(rt->rt_dst);
-
-  // set up a timer interrupt
-  Scheduler::instance().schedule(&lrtimer, p->copy(), rt->rt_req_timeout);
-}
+/////////////////////////////////////////////////////////////////////
 
 void
 AORGLU::rt_update(aorglu_rt_entry *rt, u_int32_t seqnum, u_int16_t metric,
@@ -650,6 +522,8 @@ aorglu_rt_entry *rt;
  else {
  Packet *rerr = Packet::alloc();
  struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(rerr);
+ struct hdr_ip *ih = HDR_IP(p);
+
  /* 
   * For now, drop the packet and send error upstream.
   * Now the route errors are broadcast to upstream
@@ -664,6 +538,11 @@ aorglu_rt_entry *rt;
 #ifdef DEBUG
    fprintf(stderr, "%s: sending RERR...\n", __FUNCTION__);
 #endif
+
+   /*Error here means it was caused by a packet being set
+     so set the flag and the originating address*/
+   re->orig_addr = ih->saddr(); /*Get src address to send to*/
+   re->reason = RERR_REASON_SEND;
    sendError(rerr, false);
 
    drop(p, DROP_RTR_NO_ROUTE);
@@ -770,7 +649,6 @@ struct hdr_ip *ih = HDR_IP(p); /*Get the IP header*/
    recvAORGLU(p);
    return;
  }
-
 
  /*
   *  Must be a packet I'm originating...
@@ -980,47 +858,6 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
    Packet::free(p);
  }
 
-//The following case is not used in the AORGLU protocol since only the destination node of the RREQ knows its exact location.
-#if 0 
-
- // I am not the destination, but I may have a fresh enough route.
- else if (rt && (rt->rt_hops != INFINITY2) && 
-	  	(rt->rt_seqno >= rq->rq_dst_seqno) ) {
-
-   //assert (rt->rt_flags == RTF_UP);
-   assert(rq->rq_dst == rt->rt_dst);
-   //assert ((rt->rt_seqno%2) == 0);	// is the seqno even?
-   sendReply(rq->rq_src,
-             rt->rt_hops + 1,
-             rq->rq_dst,
-             rt->rt_seqno,
-	     (u_int32_t) (rt->rt_expire - CURRENT_TIME),
-	     //             rt->rt_expire - CURRENT_TIME,
-             rq->rq_timestamp);
-   // Insert nexthops to RREQ source and RREQ destination in the
-   // precursor lists of destination and source respectively
-   rt->pc_insert(rt0->rt_nexthop); // nexthop to RREQ source
-   rt0->pc_insert(rt->rt_nexthop); // nexthop to RREQ destination
-
-#ifdef RREQ_GRAT_RREP  
-
-   sendReply(rq->rq_dst,
-             rq->rq_hop_count,
-             rq->rq_src,
-             rq->rq_src_seqno,
-	     (u_int32_t) (rt->rt_expire - CURRENT_TIME),
-	     //             rt->rt_expire - CURRENT_TIME,
-             rq->rq_timestamp);
-#endif
-   
-// TODO: send grat RREP to dst if G flag set in RREQ using rq->rq_src_seqno, rq->rq_hop_counT
-   
-// DONE: Included gratuitous replies to be sent as per IETF aorglu draft specification. As of now, G flag has not been dynamically used and is always set or reset in aorglu-packet.h --- Anant Utgikar, 09/16/02.
-
-	Packet::free(p);
- }
-#endif
-
  /*
   * Can't reply. So forward the  Route Request
   */
@@ -1163,60 +1000,18 @@ aorglu_rt_entry *rt0 = rtable.rt_lookup(ih->daddr());
 
 
 void
-AORGLU::recvError(Packet *p) {
-struct hdr_ip *ih = HDR_IP(p);
-struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
-aorglu_rt_entry *rt;
-u_int8_t i;
-Packet *rerr = Packet::alloc();
-struct hdr_aorglu_error *nre = HDR_AORGLU_ERROR(rerr);
+AORGLU::recvError(Packet *p) 
+{
+  struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
+  aorglu_rt_entry *rt;
+  u_int8_t i;
+  Packet *rerr = Packet::alloc();
+  Packet *pkt;
+  struct hdr_aorglu_error *nre = HDR_AORGLU_ERROR(rerr);
 
- nre->DestCount = 0;
-
- for (i=0; i<re->DestCount; i++) {
- // For each unreachable destination
-   rt = rtable.rt_lookup(re->unreachable_dst[i]);
-   if ( rt && (rt->rt_hops != INFINITY2) &&
-	(rt->rt_nexthop == ih->saddr()) &&
-     	(rt->rt_seqno <= re->unreachable_dst_seqno[i]) ) {
-	assert(rt->rt_flags == RTF_UP);
-	assert((rt->rt_seqno%2) == 0); // is the seqno even?
-#ifdef DEBUG
-     fprintf(stderr, "%s(%f): %d\t(%d\t%u\t%d)\t(%d\t%u\t%d)\n", __FUNCTION__,CURRENT_TIME,
-		     index, rt->rt_dst, rt->rt_seqno, rt->rt_nexthop,
-		     re->unreachable_dst[i],re->unreachable_dst_seqno[i],
-	             ih->saddr());
-#endif // DEBUG
-     	rt->rt_seqno = re->unreachable_dst_seqno[i];
-     	rt_down(rt);
-
-   // Not sure whether this is the right thing to do
-   Packet *pkt;
-	while((pkt = ifqueue->filter(ih->saddr()))) {
-        	drop(pkt, DROP_RTR_MAC_CALLBACK);
-     	}
-
-     // if precursor list non-empty add to RERR and delete the precursor list
-     	if (!rt->pc_empty()) {
-     		nre->unreachable_dst[nre->DestCount] = rt->rt_dst;
-     		nre->unreachable_dst_seqno[nre->DestCount] = rt->rt_seqno;
-     		nre->DestCount += 1;
-		rt->pc_delete();
-     	}
-   }
- } 
-
- if (nre->DestCount > 0) {
-#ifdef DEBUG
-   fprintf(stderr, "%s(%f): %d\t sending RERR...\n", __FUNCTION__, CURRENT_TIME, index);
-#endif // DEBUG
-   sendError(rerr);
- }
- else {
-   Packet::free(rerr);
- }
-
- Packet::free(p);
+  //do new RERR handling 
+  Packet::free(p);
 }
 
 
@@ -1594,8 +1389,142 @@ fprintf(stderr, "LUDP successfully received by %d\n", index);
 }
 //------END of recvLudp(...)---------------------------------------//
 
+
+//------ sendRepa() function definition ---------------------------------//
+//csh
 void
-AORGLU::sendError(Packet *p, bool jitter) {
+AORGLU::sendRepa(nsaddr_t ipdst, nsaddr_t nexthop) {
+Packet *p = Packet::alloc();
+struct hdr_cmn *ch = HDR_CMN(p);
+struct hdr_ip *ih = HDR_IP(p);
+struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
+
+ fprintf(stderr, "Sending REPA from %d at %.2f", index, Scheduler::instance().clock());
+ assert(rt);
+ fprintf(stderr, "...yes\n");
+
+ //csh - Get the x,y,z coordinates of the destination node
+ //and add them to the packet header.
+ MobileNode *destNode = (MobileNode*) Node::get_node_by_address(ipdst);
+ rpr->rpr_x = destNode->X();
+ rpr->rpr_y = destNode->Y();
+ rpr->rpr_z = destNode->Z();
+
+/*Do this elsewhere*/
+#if 0
+ nexthopid = loctable.greedy_next(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
+
+ if(nexthopid == index) {
+    //no greedy next node (LOCAL MAX OMG)
+ }
+#endif
+
+ //update REPA packet header info
+ rpr->rpr_greedy = 1;
+ rpr->rpr_type = AORGLUTYPE_LUDP;
+ rpr->rpr_dst = ipdst;
+ rpr->rpr_src = index;
+   
+ //update common header info
+ ch->ptype() = PT_AORGLU;
+ ch->size() = IP_HDR_LEN + rpr->size();
+ ch->iface() = -2;
+ ch->error() = 0;
+ ch->addr_type() = NS_AF_INET;
+ ch->next_hop_ = nexthop;
+ ch->prev_hop_ = index;          // AORGLU hack
+ ch->direction() = hdr_cmn::DOWN;
+
+ //update the IP packet header info
+ ih->saddr() = index;
+ ih->daddr() = ipdst;
+ ih->sport() = RT_PORT;
+ ih->dport() = RT_PORT;
+ ih->ttl_ = NETWORK_DIAMETER;
+
+ //schedule the REPA packet to be sent
+ Scheduler::instance().schedule(target_, p, 0);
+
+}
+//-----END sendLudp(...) ---------------------------------------//
+
+//----- Definition of recvRepa() -------------------------------//
+void
+AORGLU::recvRepa(Packet *p) {
+#if 0
+//struct hdr_ip *ih = HDR_IP(p);
+struct hdr_cmn *ch = HDR_CMN(p);
+struct hdr_aorglu_ludp *rpr = HDR_AORGLU_LUDP(p);
+aorglu_rt_entry *rt;
+
+  /*
+   * Drop if the current node is the source
+   */
+  if(lu->lu_src == index) {
+#ifdef DEBUG
+    fprintf(stderr, "%s: got my own Location Update\n", __FUNCTION__);
+#endif // DEBUG
+    Packet::free(p);
+    return;
+  } 
+
+  /*
+   * Drop if I am not the destination, or on the
+   *  path to the destination (i.e., the intended
+   *  next hop).
+   */
+  if((lu->lu_dst != index) && (ch->prev_hop_ != index)) {
+#ifdef DEBUG
+    fprintf(stderr, "%s: Unintended recipient of LUDP\n", __FUNCTION__);
+#endif // DEBUG
+     Packet::free(p);
+     return;
+  }
+
+
+ /* 
+  * Either this is the destination, or the Location Updated must be forwarded
+  */
+ // Look up the next-hop info from the route table
+ rt = rtable.rt_lookup(lu->lu_dst);
+
+ // First check if I am the destination ..
+ if(lu->lu_dst == index) {
+
+#ifdef DEBUG
+   fprintf(stderr, "%d - %s: Location Update successfully received\n",
+                   index, __FUNCTION__);
+#endif // DEBUG
+  
+//csh
+fprintf(stderr, "LUDP successfully received by %d\n", index);
+
+ /*
+  *  Add location information from the sending node to the current
+  *   node's location cache here
+  */
+
+   loctable.loc_add(lu->lu_src, lu->lu_x, lu->lu_y, lu->lu_z);
+
+   Packet::free(p);
+ }
+
+ /*
+  * Not the destination, so forward the Location Update.
+  */
+ else {
+   //Note: The recvReply function does stuff with the queue here before forwarding,
+   //       not sure if that should be done here as well.
+   fprintf(stderr, "LUDP packet being forwarded by %d\n", index);
+   forward(rt, p, DELAY);
+ }
+#endif
+}
+//------END of recvLudp(...)---------------------------------------//
+
+
+void
+AORGLU::sendError(Packet *p,  bool jitter) {
 struct hdr_cmn *ch = HDR_CMN(p);
 struct hdr_ip *ih = HDR_IP(p);
 struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
@@ -1605,7 +1534,7 @@ fprintf(stderr, "sending Error from %d at %.2f\n", index, Scheduler::instance().
 #endif // DEBUG
 
  re->re_type = AORGLUTYPE_RERR;
- //re->reserved[0] = 0x00; re->reserved[1] = 0x00;
+//re->reserved[0] = 0x00; re->reserved[1] = 0x00;
  // DestCount and list of unreachable destinations are already filled
 
  // ch->uid() = 0;
@@ -1754,7 +1683,7 @@ AORGLU_Neighbor *nb = nbhead.lh_first;
    }
  }
 
- handle_link_failure(id);
+ //handle_link_failure(id);
 
 }
 
