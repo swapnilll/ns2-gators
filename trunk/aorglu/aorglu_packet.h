@@ -45,6 +45,7 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #define AORGLUTYPE_RERR   	0x08
 #define AORGLUTYPE_RREP_ACK  	0x10
 #define AORGLUTYPE_LUDP		0x20 //csh - add Location UpDate Packet (LUDP)
+#define	AORGLUTYPE_REPA		0x40 //csh - add Route Repair Packet (REPA) (also used for RREC)
 
 /*
  * AORGLU Routing Protocol Header Macros
@@ -55,6 +56,7 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #define HDR_AORGLU_ERROR(p)	((struct hdr_aorglu_error*)hdr_aorglu::access(p))
 #define HDR_AORGLU_RREP_ACK(p)	((struct hdr_aorglu_rrep_ack*)hdr_aorglu::access(p))
 #define HDR_AORGLU_LUDP(p)	((struct hdr_aorglu_ludp*)hdr_aorglu::access(p)) //csh - add LUDP macro to access the header
+#define HDR_AORGLU_REPA(p)	((struct hdr_aorglu_repa*)hdr_aorglu::access(p)) //csh - add REPA macro to access the header
 
 /*
  * General AORGLU Header - shared by all formats
@@ -178,9 +180,9 @@ struct hdr_aorglu_ludp {
         u_int8_t        lu_type;        // Packet Type
         nsaddr_t        lu_dst;         // Destination IP Address
         nsaddr_t        lu_src;         // Source IP Address
-	double		lu_x;		// X coordinate of node sending reply
-	double		lu_y;		// Y coordinate of node sending reply
-	double		lu_z;		// Z coordinate of node sending reply
+	double		lu_x;		// X coordinate of node sending LUDP
+	double		lu_y;		// Y coordinate of node sending LUDP
+	double		lu_z;		// Z coordinate of node sending LUDP
 						
   inline int size() { 
   int sz = 0;
@@ -199,6 +201,36 @@ struct hdr_aorglu_ludp {
 };
 //--------------------------------------------------------------
 
+//--------- ROUTE REPAIR PACKET HEADER ---------------------
+//csh - Add REPA packet header struct
+struct hdr_aorglu_repa {
+        u_int8_t        rpr_type;       // Packet Type
+	u_int8_t	rpr_greedy;	// Greedy flag. If set to 1 use greedy forwarding.
+        nsaddr_t        rpr_dst;        // Destination IP Address
+        nsaddr_t        rpr_src;        // Source IP Address
+	double		rpr_x;		// X coordinate of repair destination
+	double		rpr_y;		// Y coordinate of repair destination
+	double		rpr_z;		// Z coordinate of repair destination
+        double		*rpr_path;
+						
+  inline int size() { 
+  int sz = 0;
+  
+  	sz = sizeof(u_int8_t)		// rpr_type
+	     + sizeof(u_int8_t)		// rpr_greedy
+	     + sizeof(nsaddr_t)		// rpr_dst
+	     + sizeof(nsaddr_t)		// rpr_src
+	     + sizeof(double)		// rpr_x
+	     + sizeof(double)		// rpr_y
+	     + sizeof(double);		// rpr_z
+  
+  	assert (sz >= 0);
+	return sz;
+  }
+
+};
+//--------------------------------------------------------------
+
 struct hdr_aorglu_rrep_ack {
 	u_int8_t	rpack_type;
 	u_int8_t	reserved;
@@ -209,7 +241,8 @@ union hdr_all_aorglu {
   hdr_aorglu          ah;
   hdr_aorglu_request  rreq;
   hdr_aorglu_reply    rrep;
-  hdr_aorglu_ludp     ludp; //csh - added this later. was this causing the seg-fault?
+  hdr_aorglu_ludp     ludp; //csh
+  hdr_aorglu_repa     repa; //csh
   hdr_aorglu_error    rerr;
   hdr_aorglu_rrep_ack rrep_ack;
 };

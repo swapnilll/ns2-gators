@@ -960,8 +960,9 @@ CMUTrace::format_aorglu(Packet *p, int offset)
         struct hdr_aorglu *ah = HDR_AORGLU(p);
         struct hdr_aorglu_request *rq = HDR_AORGLU_REQUEST(p);
         struct hdr_aorglu_reply *rp = HDR_AORGLU_REPLY(p);
-	//csh - add LUDP packet here
+	//csh - add LUDP and REPA packets here
 	struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
+	struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
 
 
         switch(ah->ah_type) {
@@ -1049,8 +1050,8 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 		}
                 break;
 
-		//csh - add trace for LUDP packet
-		case AORGLUTYPE_LUDP:
+	//csh - add trace for LUDP packet
+	case AORGLUTYPE_LUDP:
 
 		if (pt_->tagged()) {
 		    sprintf(pt_->buffer() + offset,
@@ -1086,6 +1087,48 @@ CMUTrace::format_aorglu(Packet *p, int offset)
                         lu->lu_z);
 		}
                 break;
+
+	//csh - add trace for REPA packet
+	case AORGLUTYPE_REPA:
+
+		if (pt_->tagged()) {
+		    sprintf(pt_->buffer() + offset,
+			    "-aorglu:t %x -aorglu:g %d -aorglu:d %d -aorglu:s %d -aorglu:x %.2lf "
+			    "-aorglu:y %.2lf -aorglu:z %.2lf -aorglu:c REPA ",
+			    rpr->rpr_type,
+			    rpr->rpr_greedy,
+                            rpr->rpr_dst,
+                            rpr->rpr_src,
+                            rpr->rpr_x,
+                            rpr->rpr_y,
+                            rpr->rpr_z);
+		} else if (newtrace_) {
+
+		    sprintf(pt_->buffer() + offset,
+			"-P aorglu -Pt 0x%x -Pg %d -Pd %d -Ps %d -Px %.2lf -Py %.2lf -Pz %.2lf REPA ",
+			rpr->rpr_type,
+			rpr->rpr_greedy,
+                        rpr->rpr_dst,
+                        rpr->rpr_src,
+                        rpr->rpr_x,
+                        rpr->rpr_y,
+                        rpr->rpr_z);
+
+
+		} else {
+
+		    sprintf(pt_->buffer() + offset,
+			"[0x%x %d %d %d (%.2lf, %.2lf, %.2lf)] (REPA)",
+			rpr->rpr_type,
+			rpr->rpr_greedy,
+                        rpr->rpr_dst,
+                        rpr->rpr_src,
+                        rpr->rpr_x,
+                        rpr->rpr_y,
+                        rpr->rpr_z);
+		}
+                break;
+
 		
         default:
 #ifdef WIN32
