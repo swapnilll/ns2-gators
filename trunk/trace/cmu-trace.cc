@@ -960,6 +960,8 @@ CMUTrace::format_aorglu(Packet *p, int offset)
         struct hdr_aorglu *ah = HDR_AORGLU(p);
         struct hdr_aorglu_request *rq = HDR_AORGLU_REQUEST(p);
         struct hdr_aorglu_reply *rp = HDR_AORGLU_REPLY(p);
+	//csh - added error info here
+	struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
 	//csh - add LUDP and REPA packets here
 	struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
 	struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
@@ -1009,7 +1011,6 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 
         case AORGLUTYPE_RREP:
         case AORGLUTYPE_HELLO:
-	case AORGLUTYPE_RERR:
 		
 		if (pt_->tagged()) {
 		    sprintf(pt_->buffer() + offset,
@@ -1020,9 +1021,7 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 			    rp->rp_dst,
 			    rp->rp_dst_seqno,
 			    rp->rp_lifetime,
-			    rp->rp_type == AORGLUTYPE_RREP ? "REPLY" :
-			    (rp->rp_type == AORGLUTYPE_RERR ? "ERROR" :
-			     "HELLO"));
+			    rp->rp_type == AORGLUTYPE_RREP ? "REPLY" : "HELLO");
 		} else if (newtrace_) {
 			
 			sprintf(pt_->buffer() + offset,
@@ -1032,9 +1031,7 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 				rp->rp_dst,
 				rp->rp_dst_seqno,
 				rp->rp_lifetime,
-				rp->rp_type == AORGLUTYPE_RREP ? "REPLY" :
-				(rp->rp_type == AORGLUTYPE_RERR ? "ERROR" :
-				 "HELLO"));
+				rp->rp_type == AORGLUTYPE_RREP ? "REPLY" : "HELLO");
 	        } else {
 			
 			sprintf(pt_->buffer() + offset,
@@ -1044,15 +1041,34 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 				rp->rp_dst,
 				rp->rp_dst_seqno,
 				rp->rp_lifetime,
-				rp->rp_type == AORGLUTYPE_RREP ? "REPLY" :
-				(rp->rp_type == AORGLUTYPE_RERR ? "ERROR" :
-				 "HELLO"));
+				rp->rp_type == AORGLUTYPE_RREP ? "REPLY" : "HELLO");
+		}
+                break;
+
+	case AORGLUTYPE_RERR:
+		if (pt_->tagged()) {
+		    sprintf(pt_->buffer() + offset,
+			    "-aorglu:t %x -aorglu:d %d -aorglu:c RERR ",
+			    re->re_type,
+                            re->re_orig_addr);
+		} else if (newtrace_) {
+
+		    sprintf(pt_->buffer() + offset,
+			"-P aorglu -Pt 0x%x RERR ",
+			re->re_type,
+                        re->re_orig_addr);
+
+		} else {
+
+		    sprintf(pt_->buffer() + offset,
+			"[0x%x %d (RERR)",
+			re->re_type,
+                        re->re_orig_addr);
 		}
                 break;
 
 	//csh - add trace for LUDP packet
 	case AORGLUTYPE_LUDP:
-
 		if (pt_->tagged()) {
 		    sprintf(pt_->buffer() + offset,
 			    "-aorglu:t %x -aorglu:d %d -aorglu:s %d -aorglu:x %.2lf "
@@ -1090,7 +1106,6 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 
 	//csh - add trace for REPA packet
 	case AORGLUTYPE_REPA:
-
 		if (pt_->tagged()) {
 		    sprintf(pt_->buffer() + offset,
 			    "-aorglu:t %x -aorglu:g %d -aorglu:d %d -aorglu:s %d -aorglu:x %.2lf "

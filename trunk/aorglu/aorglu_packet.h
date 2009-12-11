@@ -156,24 +156,16 @@ struct hdr_aorglu_reply {
 };
 
 struct hdr_aorglu_error {
-        u_int8_t        re_type;                // Type
-        u_int8_t        reserved[2];            // Reserved
-        u_int8_t        DestCount;                 // DestCount
-        // List of Unreachable destination IP addresses and sequence numbers
-        nsaddr_t        unreachable_dst[AORGLU_MAX_ERRORS];   
-        u_int32_t       unreachable_dst_seqno[AORGLU_MAX_ERRORS];
-	nsaddr_t	orig_addr;	//source address whose packet resulted in error.
-	u_int32_t	reason;		//flag stating reason for error. 0=timed 1=sent message
+        u_int8_t        re_type;        // Type
+	nsaddr_t	re_orig_addr;	// original address whose sent packet resulted in error.
+
 
   inline int size() { 
   int sz = 0;
-  /*
+
   	sz = sizeof(u_int8_t)		// type
-	     + 2*sizeof(u_int8_t) 	// reserved
-	     + sizeof(u_int8_t)		// length
-	     + length*sizeof(nsaddr_t); // unreachable destinations
-  */
-  	sz = (DestCount*2 + 1)*sizeof(u_int32_t);
+	     + sizeof(nsaddr_t); 	// orig_addr
+
 	assert(sz);
         return sz;
   }
