@@ -27,6 +27,8 @@ This source was created to use with NS-2.
 #include <config.h>
 #include <lib/bsd-list.h>
 #include <scheduler.h>
+#include <mobilenode.h>
+#include <node.h>
 
 #include <aorglu/aorglu_rtable.h>
 
@@ -60,7 +62,7 @@ class aorglu_loc_entry {
 
 class aorglu_loctable {
  public:
-	aorglu_loctable(aorglu_ncache *nbhead); 
+	aorglu_loctable(Agent *a); 
 	~aorglu_loctable();
 
         aorglu_loc_entry* head();
@@ -73,7 +75,7 @@ class aorglu_loctable {
         nsaddr_t greedy_next_node(double X_, double Y_, double Z_);
  
  private:
-        aorglu_ncache *nbhead;
+        Agent *agent;
         LIST_HEAD(aorglu_lochead, aorglu_loc_entry) lochead;
 };
 

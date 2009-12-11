@@ -156,7 +156,7 @@ AORGLU::command(int argc, const char*const* argv) {
 /*RGK - Added loctimer to constructor list*/
 AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), loctimer(this), cctimer(this),
 			  lutimer(this), btimer(this), htimer(this), ntimer(this), 
-			  rtimer(this), lrtimer(this), loctable(&nbhead), rqueue() {
+			  rtimer(this), lrtimer(this), loctable(this), rqueue() {
   index = id;
   seqno = 2;
   bid = 1;
