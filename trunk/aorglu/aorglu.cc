@@ -1645,7 +1645,7 @@ AORGLU::forwardRepa(Packet *p, nsaddr_t next)
 
   /*Delete the path, if any*/
   rpr->rpr_greedy = 1;
-  rpr->path->clear();
+  rpr->path->clear(); //TODO: this seems to be causing a seg-fault!
   rpr->rpr_hop_count+= 1;
   if(rt) rpr->rpr_dst_seqno = max(rt->rt_seqno, rpr->rpr_dst_seqno);
 
@@ -1682,8 +1682,10 @@ AORGLU::forwardRepc(Packet *p)
   nsaddr_t gnexthopid = loctable.greedy_next_node(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
 
   /*If we are no longer at a local maximum, then convert the REPC
-    packet to a REPA and send using forwardRepa()*/
-  if(gnexthopid != index){
+    packet to a REPA and send using forwardRepa(). Note: We know that 
+    we are out of the local maximum if greedy search returns a node
+    that is not the current node and that is not already in our path list*/
+  if((gnexthopid != index) && (!rpr->path->path_lookup(gnexthopid)) && (gnexthopid != ch->prev_hop_)){ //TODO:path_lookup is causing a seg-fault
     //conversion to REPA done in forwardRepa()
     fprintf(stderr, "Node %d: REPC being converted to REPA to send to %d!\n", index,rpr->rpr_dst);
     forwardRepa(p,gnexthopid);
@@ -1693,7 +1695,7 @@ AORGLU::forwardRepc(Packet *p)
     aorglu_loc_entry *le = loctable.loc_lookup(ch->prev_hop_);
     fprintf(stderr,"Path Length = %d\n",rpr->path->length());
     if(rpr->path->length() == 0){
-      //This is the initial REPC, so use DST coordinates
+      //This is an initial REPC, so use DST coordinates
       tx=rpr->rpr_x; ty=rpr->rpr_y; tz=rpr->rpr_z;
     }
     else{
@@ -1724,6 +1726,7 @@ AORGLU::forwardRepc(Packet *p)
     }
 
     //Update REPC Packet header info
+    rpr->rpr_type = AORGLUTYPE_REPC;
     rpr->rpr_hop_count+= 1;
     //if(rt) rpr->rpr_dst_seqno = max(rt->rt_seqno, rpr->rpr_dst_seqno);
 
