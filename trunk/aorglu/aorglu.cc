@@ -559,6 +559,7 @@ aorglu_rt_entry *rt;
  else if(ih->saddr() == index) {
    rqueue.enque(p);
    sendRequest(rt->rt_dst);
+   fprintf(stderr, "Sending RREQ #%d from %d to %d due to rt_resolve\n", route_request,index, ih->daddr());
  }
  /*
   *	A repair is in progress. Buffer the packet. 
@@ -768,7 +769,7 @@ AORGLU::recvAORGLU(Packet *p) {
    break;
 
  case AORGLUTYPE_REPC:
-   recvRepc(p);
+   forwardRepc(p); //Note a REPC packet is ALWAYS forwarded
    break;
  
  default:
@@ -1524,14 +1525,14 @@ AORGLU::recvRepa(Packet *p)
 
   fprintf(stderr, "Node %d: Recieved Repa packet!\n", index);
 
-  /* We are either going to forward the REQUEST or generate a
+  /* We are either going to forward the REPAIR or generate a
   * REPLY. Before we do anything, we make sure that the REVERSE
   * route is in the route table.
   */
    aorglu_rt_entry *rt0; // rt0 is the reverse route 
    
    rt0 = rtable.rt_lookup(rpr->rpr_src);
-   fprintf(stderr, "Node %d adding entry for node %d\n", index, rpr->rpr_src);
+   fprintf(stderr, "Node %d adding reverse entry for node %d\n", index, rpr->rpr_src);
    
    if(rt0 == 0) { /* if not in the route table */
    // create an entry for the reverse route.
@@ -1578,17 +1579,17 @@ AORGLU::recvRepa(Packet *p)
    else {
      fprintf(stderr, "Node %d reverse route to node %d NOT updated.\n", index, rpr->rpr_src);
    }
-
    // End for putting reverse route in rt table
 
-  /*This is my packet*/
+
+  /*If this is my packet*/
   if(rpr->rpr_dst  == index) {
     /*If so, prepare to send the RREP packet*/
     fprintf(stderr, "REPA successfully received by %d, sending RREP\n", index);
 
   /*Forwarding nodes update their sequence */
   seqno = max(seqno, rpr->rpr_dst_seqno)+1;
-  if (seqno%2) seqno++;
+  if(seqno%2) seqno++;
  
     sendReply(rpr->rpr_src,           // IP Destination
               1,                      // Hop Count
@@ -1609,7 +1610,15 @@ AORGLU::recvRepa(Packet *p)
          forwardRepa(p, nexthopid);
       }
       else {
-         fprintf(stderr, "--Node %d: Local Maximum Detected!\n", index);
+        fprintf(stderr, "--Node %d: Local Maximum Detected!\n", index);
+	Packet *p2 = p->copy();
+	struct hdr_aorglu_repa *rpr2 = HDR_AORGLU_REPA(p2);
+	rpr->rpr_greedy = 0;
+	rpr2->rpr_greedy = 0;	
+	rpr->rpr_dir = 1;
+	rpr->rpr_dir = 0;
+        forwardRepc(p);
+	forwardRepc(p2);
       }
    }
    else { /*Otherwise, drop the packet*/
@@ -1648,21 +1657,73 @@ AORGLU::forwardRepa(Packet *p, nsaddr_t next)
   Scheduler::instance().schedule(target_, p, 0.);
 }
 //------END of forwardRepa(...)---------------------------------------//
+
+
 //----- Definition of forwardRepc() -------------------------------//
+/*This function is responsible for:
+  1) Detemining if we are still at a local maximum. If so, forward REPC,
+      otherwise convert to REPA and call sendREPA
+  2) Call a function to determine the next hop based on CCW or CW searching*/
 void
-AORGLU::forwardRepc(Packet *p, nsaddr_t dst) 
+AORGLU::forwardRepc(Packet *p) 
 {
-  fprintf(stderr, "Node %d: Sending Repc packet!\n", index);
+  //struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_cmn *ch = HDR_CMN(p);
+  struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
+
+  nsaddr_t nexthopid = 0; //TODO remove the initialization to zero, it was just for testing.
+  nsaddr_t gnexthopid = loctable.greedy_next_node(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
+
+  /*If we are no longer at a local maximum, then convert the REPC
+    packet to a REPA and send using forwardRepa()*/
+  if(gnexthopid != index){
+    //conversion to REPA done in forwardRepa()
+    fprintf(stderr, "Node %d: REPC being converted to REPA to send to %d!\n", index,rpr->rpr_dst);
+    forwardRepa(p,gnexthopid);
+  }
+
+  /*Otherwise, we are still at a local maximum*/
+  else{
+#if 0
+    /*Find next hop based on CW or CCW search (depending 
+      on value in REPC packet header)*/
+    if(rpr->rpr_dir == 0){
+      /*clockwise*/
+      nexthopid = clockwisesearchfunction(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
+    }
+    else if{ 
+      /*counterclockwise*/
+      nexthopid = counterclockwisesearchfunction(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
+    }
+#endif
+  
+    /*Add previouse node to beginning of the path list and continue
+      sending REPC using CW or CCW as specified in the packet header*/
+    aorglu_loc_entry *le = loctable.loc_lookup(ch->prev_hop_);
+    rpr->path->path_add(ch->prev_hop_, le->X_, le->Y_, le->Z_);
+
+    //Update REPC Packet header info
+    rpr->rpr_hop_count+= 1;
+    //if(rt) rpr->rpr_dst_seqno = max(rt->rt_seqno, rpr->rpr_dst_seqno);
+
+    //Update common header info
+    ch->prev_hop_ = index;
+    ch->next_hop_ = nexthopid;
+    ch->ptype() = PT_AORGLU;
+    ch->size() = IP_HDR_LEN + rpr->size();
+    ch->iface() = -2;
+    ch->error() = 0;
+    ch->addr_type() = NS_AF_INET;
+    ch->direction() = hdr_cmn::DOWN;
+
+    //Send the packet
+    Scheduler::instance().schedule(target_, p, 0.);
+    fprintf(stderr, "Node %d: Forwarding REPC packet to %d!\n", index,nexthopid);
+  }
+  
 }
 //------END of forwardRepc(...)---------------------------------------//
 
-//----- Definition of recvRepc() -------------------------------//
-void
-AORGLU::recvRepc(Packet *p) 
-{
-  fprintf(stderr, "Node %d: Recieved Repc. packet!\n", index);
-}
-//------END of recvRepc(...)---------------------------------------//
 
 
 void
