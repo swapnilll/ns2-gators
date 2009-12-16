@@ -176,27 +176,45 @@ AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), reparetxtimer(this), locexptimer
 
 /*Maintenance Timers*/
 void
-AORGLU_LOC_EXP_Timer::handle(Event *)
-{
-  fprintf(stderr, "LOC_EXP_TIMER Expired!====================\n");
+AORGLU_LOC_EXP_Timer::handle(Event *event)
+{    
+  RouteFailEvent *rfe = (RouteFailEvent*) event;
+
+  if( rfe->rt->rt_flags == RTF_UP)
+    fprintf(stderr, "-->LOC_EXT_TIMER Expired, but the route has been fixed! YATTA!\n");
+  else {
+    fprintf(stderr, "-->LOC_EXP_TIMER Expired, but the route is not fixed, yet... :(\n");
+    agent->rt_down(rfe->rt);
+    agent->sendRequest(rfe->rt->rt_dst); /*Send another route requeeeessstttttt*/
+  }
+
+  delete event;
   
 }
 
 void
 AORGLU_REPA_RETX_Timer::handle(Event *event)
 {
-//  RouteFailEvent *rfe = (RouteFailEvent*)event;
+  RouteFailEvent *rfe = (RouteFailEvent*)event;
+  aorglu_loc_entry *le = agent->loctable.loc_lookup(rfe->rt->rt_dst);
 
-  fprintf(stderr, "REPA_RETX_TIMER Expired!====================\n");
-//
- // if(rfe->rt->rt_flags == RTF_IN_REPAIR) {
- //   fprintf(stderr, "-->Route still in repair mode\n");
- // }
- // else {
-  //  fprintf(stderr, "-->Route no longer being repaired wtf.\n");
-  //}
+  fprintf(stderr, "==> REPA_RETX_TIMER Expired! <==\n");
 
-  delete event;
+  if(rfe->rt->rt_flags == RTF_UP) {
+    fprintf(stderr, "-->Route no longer being repaired.\n");
+    delete event;
+    return;
+  }
+  else {
+    fprintf(stderr, "-->Route still in repair mode\n");
+    if(rfe->rt->rt_flags == RTF_IN_REPAIR) {
+      if(le){
+       agent->init_route_maintenance(rfe->rt, le);
+      }
+       /*Only reschedule when the route is still under repair*/
+       Scheduler::instance().schedule(this,rfe, REPA_RETX_TIME);
+    }
+  }
 }
 
 /*RGK - Location Cache Timer*/
@@ -284,7 +302,6 @@ AORGLUNeighborTimer::handle(Event*) {
   agent->nb_purge();
   Scheduler::instance().schedule(this, &intr, HELLO_INTERVAL);
 }
-
 
 void
 AORGLURouteCacheTimer::handle(Event*) {
@@ -482,6 +499,7 @@ AORGLU::rt_update(aorglu_rt_entry *rt, u_int32_t seqnum, u_int16_t metric,
      rt->rt_flags = RTF_UP;
      rt->rt_nexthop = nexthop;
      rt->rt_expire = expire_time;
+
      fprintf(stderr, "Node %d: Updating route for node %d. Next hop: %d\n", index, rt->rt_dst, rt->rt_nexthop);
 }
 
@@ -941,6 +959,9 @@ double delay = 0.0;
   rt_update(rt, rp->rp_dst_seqno, rp->rp_hop_count,
 		rp->rp_src, CURRENT_TIME + rp->rp_lifetime);
 
+  /*If the route was marked as in repair, it should be up now..*/
+  if( rt->rt_flags == RTF_IN_REPAIR) rt->rt_flags = RTF_UP;
+
   fprintf(stderr, "Node %d Found a newer route to %d THROUGH %d, updating routing table...\n", index, rp->rp_dst, rt->rt_nexthop); 
 
   // reset the soft state
@@ -1032,8 +1053,8 @@ AORGLU::recvError(Packet *p)
   struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
   aorglu_rt_entry *rt = rtable.rt_lookup(re->re_orig_dst);
 
-  nsaddr_t nexthopid;
-  //RouteFailEvent *rfe;
+  //nsaddr_t nexthopid;
+  RouteFailEvent *rfe0, *rfe1;
 
  if(re->re_orig_src  == index) { /*This is my packet*/
 
@@ -1050,21 +1071,18 @@ AORGLU::recvError(Packet *p)
   /*We know the destinations location, so lets try to greedy forward recover*/
   if(le) {
      /*We know where the dest. is, so lets AORGLU it*/
-     //rt->rt_flags = RTF_IN_REPAIR;
-     //rt_down(rt);
-     //rfe = new RouteFailEvent(rt);   
-    // Scheduler::instance().schedule(&locexptimer,&locexptimer.intr, LOC_EXP_TIME);
-   //  Scheduler::instance().schedule(&reparetxtimer,rfe, REPA_RETX_TIME);
+     rt->rt_flags = RTF_IN_REPAIR;
+     
+    fprintf(stderr, "==> Node %d starting ROUTE REPAIR timers. <==\n", index); 
 
-     fprintf(stderr, "--Node %d found at %.2lf %.2lf %.2lf!\n", re->re_orig_dst, le->X_, le->Y_, le->Z_); 
-     nexthopid = loctable.greedy_next_node(le->X_, le->Y_, le->Z_);
-     if(nexthopid != index) {
-        fprintf(stderr, "--Next GREEDY hop address: %d\n", nexthopid);
-        sendRepa(re->re_orig_dst, nexthopid); 
-     }
-     else {
-        fprintf(stderr, "--Local Maximum Detected!\n");
-     }
+    rfe0 = new RouteFailEvent(rt);   
+    Scheduler::instance().schedule(&locexptimer,rfe0, LOC_EXP_TIME);
+    
+    rfe1 = new RouteFailEvent(rt);
+    Scheduler::instance().schedule(&reparetxtimer,rfe1, REPA_RETX_TIME);
+
+    init_route_maintenance(rt,le);
+
    }
    else {
      rt_down(rt); /*Sadface.*/
@@ -1074,7 +1092,7 @@ AORGLU::recvError(Packet *p)
   }
   else if(ch->next_hop_ == index) { /*I am the next forwarding hop*/
    rt = rtable.rt_lookup(re->re_orig_src);
-   fprintf(stderr, "Node %d fowarding to node %d\n", index, rt->rt_nexthop);
+   fprintf(stderr, "Node %d fowarding RERR to node %d\n", index, rt->rt_nexthop);
    forward(rt, p, DELAY);
 
   }
@@ -1083,6 +1101,24 @@ AORGLU::recvError(Packet *p)
   }
 }
 
+void           
+AORGLU::init_route_maintenance(aorglu_rt_entry *rt, aorglu_loc_entry *le)
+{
+  nsaddr_t nexthopid;
+  nsaddr_t dst = rt->rt_dst;
+
+  fprintf(stderr, "--Node %d found at %.2lf %.2lf %.2lf!\n", dst, le->X_, le->Y_, le->Z_); 
+
+  nexthopid = loctable.greedy_next_node(le->X_, le->Y_, le->Z_);
+
+  if(nexthopid != index) {
+     fprintf(stderr, "--Next GREEDY hop address: %d\n", nexthopid);
+     sendRepa(rt->rt_dst, nexthopid); 
+   }
+   else { 
+     fprintf(stderr, "--Local Maximum Detected!\n");
+   }
+}
 
 /*
    Packet Transmission Routines

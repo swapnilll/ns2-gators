@@ -83,7 +83,7 @@ class AORGLU;
 #define REV_ROUTE_LIFE          6				// 5  seconds
 #define BCAST_ID_SAVE           6				// 3 seconds
 
-#define REPA_RETX_TIME          1.5
+#define REPA_RETX_TIME          0.001
 #define LOC_EXP_TIME            4
 
 /*RGK - LOC_CACHE_EXP Time (How long a cache entry lives. 0 disables)*/
@@ -274,6 +274,16 @@ class LUDPCacheEntry {
 
 LIST_HEAD(aorglu_ludpcache, LUDPCacheEntry);
 
+class RouteFailEvent : public Event
+{
+  friend class AORGLU_LOC_EXP_Timer;
+  friend class AORGLU_REPA_RETX_Timer;
+  public:
+   RouteFailEvent(aorglu_rt_entry *rt) { this->rt = rt; }
+  private:
+  aorglu_rt_entry *rt;
+};
+
 /*
   The Routing Agent
 */
@@ -328,6 +338,8 @@ class AORGLU: public Agent {
 
        /* RGK - Location Management*/
         void            loc_purge(void);
+
+        void            init_route_maintenance(aorglu_rt_entry *rt, aorglu_loc_entry *le);  
 
         /*
          * Neighbor Management
@@ -474,15 +486,6 @@ class AORGLU: public Agent {
 	/* for passing packets up to agents */
 	PortClassifier *dmux_;
 
-};
-
-class RouteFailEvent : public Event
-{
-  friend class AORGLU_REPA_RETX_Timer;
-  public:
-   RouteFailEvent(aorglu_rt_entry *rt) { this->rt = rt; }
-  private:
-  aorglu_rt_entry *rt;
 };
 
 #endif /* __aorglu_h__ */
