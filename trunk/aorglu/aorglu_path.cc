@@ -44,6 +44,17 @@ aorglu_path::~aorglu_path()
   }
 }
 
+void
+aorglu_path::clear()
+{
+  aorglu_path_entry *npe, *pe ;
+  for(pe = pathhead.lh_first;pe;pe=npe) {
+       npe=pe->path_link.le_next;
+       LIST_REMOVE(pe,path_link);
+       this->len--;
+       delete pe;
+  }
+}
 
 aorglu_path_entry*
 aorglu_path::head()

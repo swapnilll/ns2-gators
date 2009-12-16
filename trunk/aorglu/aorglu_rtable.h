@@ -80,6 +80,7 @@ LIST_HEAD(aorglu_precursors, AORGLU_Precursor);
 */
 
 class aorglu_rt_entry {
+        friend class AORGLU_REPA_RETX_Timer;
         friend class aorglu_rtable;
         friend class AORGLU;
 	friend class AORGLULocalRepairTimer;
