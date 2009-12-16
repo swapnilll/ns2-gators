@@ -9,11 +9,11 @@ set val(ifq)            Queue/DropTail/PriQueue    ;# interface queue type
 set val(ll)             LL                         ;# link layer type
 set val(ant)            Antenna/OmniAntenna        ;# antenna model
 set val(ifqlen)         50                         ;# max packet in ifq
-set val(nn)             12                          ;# number of mobilenodes
+set val(nn)             13                          ;# number of mobilenodes
 set val(rp)             AORGLU                     ;# routing protocol
 set val(x)              1000                  ;# X dimension of topography
 set val(y)              1000                  ;# Y dimension of topography
-set val(stop)        	20               ;# time of simulation end
+set val(stop)        	50               ;# time of simulation end
 
 set ns            [new Simulator]
 set tracefd       [open tr2.tr w]
@@ -103,10 +103,14 @@ $node_(11) set X_ 280.0
 $node_(11) set Y_ 590.0
 $node_(11) set Z_ 0.0
 
+$node_(12) set X_ 900.0
+$node_(12) set Y_ 60.0
+$node_(12) set Z_ 0.0
+
 
 # Generation of movements
-#$ns at 10.0 "$node_(0) setdest 250.0 250.0 3.0"
-#$ns at 15.0 "$node_(1) setdest 45.0 285.0 5.0"
+$ns at 2.0 "$node_(4) setdest 900.0 110.0 50.0"
+$ns at 11.0 "$node_(12) setdest 510.0 90.0 60.0"
 #$ns at 110.0 "$node_(0) setdest 480.0 300.0 5.0"
 
 # Set a TCP connection between node_(0) and node_(1)
@@ -144,7 +148,7 @@ for {set i 0} {$i < $val(nn) } { incr i } {
 # ending nam and the simulation
 $ns at $val(stop) "$ns nam-end-wireless $val(stop)"
 $ns at $val(stop) "stop"
-$ns at 20.01 "puts \"end simulation\" ; $ns halt"
+$ns at 50.01 "puts \"end simulation\" ; $ns halt"
 proc stop {} {
     global ns tracefd namtrace
     $ns flush-trace

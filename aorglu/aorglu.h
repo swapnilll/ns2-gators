@@ -375,7 +375,7 @@ class AORGLU: public Agent {
         void            sendRepa(nsaddr_t dst, nsaddr_t next);
         void            forwardRepa(Packet *p, nsaddr_t next);
 
-	void            forwardRepc(Packet *p, nsaddr_t next);
+	void            forwardRepc(Packet *p);
 
         void            forward(aorglu_rt_entry *rt, Packet *p, double delay);
         void            sendHello(void);
@@ -392,7 +392,6 @@ class AORGLU: public Agent {
 
         //Route Maintenance
         void            recvRepa(Packet *p);
-        void            recvRepc(Packet *p);
 
         void            recvAORGLU(Packet *p);
         void            recvHello(Packet *p);

@@ -200,16 +200,16 @@ struct hdr_aorglu_ludp {
 //--------------------------------------------------------------
 
 //--------- ROUTE REPAIR PACKET HEADER ---------------------
-//csh - Add REP packet header struct
+//csh - Add REPA packet header struct
 struct hdr_aorglu_repa {
         u_int8_t        rpr_type;       // Packet Type
+	nsaddr_t        rpr_src;        // Source IP Address
+	u_int32_t       rpr_src_seqno;  // Source Sequence Number
+	nsaddr_t        rpr_dst;        // Destination IP Address
         u_int32_t       rpr_dst_seqno;  // Destination Sequence Number
+	u_int8_t        rpr_hop_count;  // Hop Count
 	u_int8_t	rpr_greedy;	// Greedy flag. If set to 1 use greedy forwarding.
-        nsaddr_t        rpr_dst;        // Destination IP Address
-        nsaddr_t        rpr_src;        // Source IP Address
-        u_int8_t        rpr_hop_count;   // Hop Count
-
-        u_int32_t       rpr_src_seqno;   // Source Sequence Number
+	u_int8_t	rpr_dir;	// Direction to search for next hop 0=clockwise 1=counterclockwise.
 	double		rpr_x;		// X coordinate of repair destination
 	double		rpr_y;		// Y coordinate of repair destination
 	double		rpr_z;		// Z coordinate of repair destination
@@ -221,8 +221,8 @@ struct hdr_aorglu_repa {
   int sz = 0;
   
   	sz =   sizeof(u_int8_t)		// rpr_type
-             + 2*sizeof(u_int32_t)      // rpr_dst_seqno
-	     + 2*sizeof(u_int8_t)	// rpr_greedy
+             + 2*sizeof(u_int32_t)      // rpr_dst_seqno and rpr_src_seqno
+	     + 2*sizeof(u_int8_t)	// rpr_greedy and rpr_hop_count;
 	     + sizeof(nsaddr_t)		// rpr_dst
 	     + sizeof(nsaddr_t)		// rpr_src
 	     + sizeof(double)		// rpr_x
