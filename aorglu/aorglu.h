@@ -83,6 +83,9 @@ class AORGLU;
 #define REV_ROUTE_LIFE          6				// 5  seconds
 #define BCAST_ID_SAVE           6				// 3 seconds
 
+#define REPA_RETX_TIME          1.5
+#define LOC_EXP_TIME            4
+
 /*RGK - LOC_CACHE_EXP Time (How long a cache entry lives. 0 disables)*/
 #define LOC_CACHE_EXP -1 
 
@@ -215,6 +218,7 @@ private:
 
 class AORGLU_REPA_RETX_Timer : public Handler {
 public:
+        friend class AORGLU;
         AORGLU_REPA_RETX_Timer(AORGLU* a) : agent(a) {}
         void	handle(Event*);
 private:
@@ -223,6 +227,7 @@ private:
 };
 
 class AORGLU_LOC_EXP_Timer : public Handler {
+       friend class AORGLU;
 public:
         AORGLU_LOC_EXP_Timer(AORGLU* a) : agent(a) {}
         void	handle(Event*);
@@ -354,8 +359,11 @@ class AORGLU: public Agent {
          */
        
         //Route Maintenance 
+        void            handle_link_failure(nsaddr_t id);
         void            sendRepa(nsaddr_t dst, nsaddr_t next);
-        void            sendRepc(nsaddr_t dst);
+        void            forwardRepa(Packet *p, nsaddr_t next);
+
+	void            forwardRepc(Packet *p, nsaddr_t next);
 
         void            forward(aorglu_rt_entry *rt, Packet *p, double delay);
         void            sendHello(void);
@@ -466,6 +474,15 @@ class AORGLU: public Agent {
 	/* for passing packets up to agents */
 	PortClassifier *dmux_;
 
+};
+
+class RouteFailEvent : public Event
+{
+  friend class AORGLU_REPA_RETX_Timer;
+  public:
+   RouteFailEvent(aorglu_rt_entry *rt) { this->rt = rt; }
+  private:
+  aorglu_rt_entry *rt;
 };
 
 #endif /* __aorglu_h__ */

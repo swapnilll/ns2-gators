@@ -41,11 +41,11 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #define max(a,b)        ( (a) > (b) ? (a) : (b) )
 #define CURRENT_TIME    Scheduler::instance().clock()
 
-#ifdef DEBUG
-static int extra_route_reply = 0;
-static int limit_route_request = 0;
+
+//static int extra_route_reply = 0;
+//static int limit_route_request = 0;
 static int route_request = 0;
-#endif
+
 
 /*
   TCL Hooks
@@ -178,11 +178,25 @@ AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), reparetxtimer(this), locexptimer
 void
 AORGLU_LOC_EXP_Timer::handle(Event *)
 {
+  fprintf(stderr, "LOC_EXP_TIMER Expired!====================\n");
+  
 }
 
 void
-AORGLU_REPA_RETX_Timer::handle(Event *)
+AORGLU_REPA_RETX_Timer::handle(Event *event)
 {
+//  RouteFailEvent *rfe = (RouteFailEvent*)event;
+
+  fprintf(stderr, "REPA_RETX_TIMER Expired!====================\n");
+//
+ // if(rfe->rt->rt_flags == RTF_IN_REPAIR) {
+ //   fprintf(stderr, "-->Route still in repair mode\n");
+ // }
+ // else {
+  //  fprintf(stderr, "-->Route no longer being repaired wtf.\n");
+  //}
+
+  delete event;
 }
 
 /*RGK - Location Cache Timer*/
@@ -270,6 +284,7 @@ AORGLUNeighborTimer::handle(Event*) {
   agent->nb_purge();
   Scheduler::instance().schedule(this, &intr, HELLO_INTERVAL);
 }
+
 
 void
 AORGLURouteCacheTimer::handle(Event*) {
@@ -445,12 +460,14 @@ AORGLU::rt_ll_failed(Packet *p) {
   struct hdr_cmn *ch = HDR_CMN(p);
   struct hdr_ip *ih = HDR_IP(p);
 
+  fprintf(stderr, "%s : Node %d checking for node %d.\n", __FUNCTION__, index, ch->next_hop_);
+  if(!nb_lookup(ch->next_hop_)) {
   /*No longer a neighbor, so its a route down!!*/
     fprintf(stderr, "%s : ROUTE Fail from %d TO %d Detected!\n", __FUNCTION__, index, ch->next_hop_);
     sendError(ih->saddr(), ih->daddr());
   }
   else { /*LinkLayer Fail*/
-    fprintf(stderr, "%s : LinkLayer Fail Detected!\n", __FUNCTION__);
+    fprintf(stderr, "%s : Node %d : LinkLayer Fail Detected!\n", __FUNCTION__, index);
    drop(p, DROP_RTR_MAC_CALLBACK);
   } 
 }
@@ -465,6 +482,7 @@ AORGLU::rt_update(aorglu_rt_entry *rt, u_int32_t seqnum, u_int16_t metric,
      rt->rt_flags = RTF_UP;
      rt->rt_nexthop = nexthop;
      rt->rt_expire = expire_time;
+     fprintf(stderr, "Node %d: Updating route for node %d. Next hop: %d\n", index, rt->rt_dst, rt->rt_nexthop);
 }
 
 void
@@ -525,7 +543,7 @@ aorglu_rt_entry *rt;
    sendRequest(rt->rt_dst);
  }
  /*
-  *	A local repair is in progress. Buffer the packet. 
+  *	A repair is in progress. Buffer the packet. 
   */
  else if (rt->rt_flags == RTF_IN_REPAIR) {
    rqueue.enque(p);
@@ -614,7 +632,7 @@ Packet *p;
        delay += ARP_DELAY;
      }
    } 
-   else if (rqueue.find(rt->rt_dst))
+   //else if (rqueue.find(rt->rt_dst))
    // If the route is down and 
    // if there is a packet for this destination waiting in
    // the sendbuffer, then send out route request. sendRequest
@@ -623,7 +641,7 @@ Packet *p;
    // This may not be crucial to do it here, as each generated 
    // packet will do a sendRequest anyway.
 
-     sendRequest(rt->rt_dst); 
+   //  sendRequest(rt->rt_dst); 
    }
 
 }
@@ -862,7 +880,6 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
    //csh - Add location entry
    loctable.loc_add(ih->saddr(), rq->rq_x, rq->rq_y, rq->rq_z);
 
-
    Packet::free(p);
  }
 
@@ -890,10 +907,7 @@ aorglu_rt_entry *rt;
 char suppress_reply = 0;
 double delay = 0.0;
 	
-#ifdef DEBUG
  fprintf(stderr, "%d - %s: received a REPLY\n", index, __FUNCTION__);
-#endif // DEBUG
-
 
  /*
   *  Got a reply. So reset the "soft state" maintained for 
@@ -910,6 +924,7 @@ double delay = 0.0;
   *  If I don't have a rt entry to this host... adding
   */
  if(rt == 0) {
+   fprintf(stderr,"Node %d: Adding new route entry to %d\n", index, rp->rp_dst);
    rt = rtable.rt_add(rp->rp_dst);
  }
 
@@ -921,10 +936,12 @@ double delay = 0.0;
  if ( (rt->rt_seqno < rp->rp_dst_seqno) ||   // newer route 
       ((rt->rt_seqno == rp->rp_dst_seqno) &&  
        (rt->rt_hops > rp->rp_hop_count)) ) { // shorter or better route
-	
+ 
   // Update the rt entry 
   rt_update(rt, rp->rp_dst_seqno, rp->rp_hop_count,
 		rp->rp_src, CURRENT_TIME + rp->rp_lifetime);
+
+  fprintf(stderr, "Node %d Found a newer route to %d THROUGH %d, updating routing table...\n", index, rp->rp_dst, rt->rt_nexthop); 
 
   // reset the soft state
   rt->rt_req_cnt = 0;
@@ -1010,11 +1027,13 @@ aorglu_rt_entry *rt0 = rtable.rt_lookup(ih->daddr());
 void
 AORGLU::recvError(Packet *p) 
 {
-  struct hdr_ip *ih = HDR_IP(p);
+  //struct hdr_ip *ih = HDR_IP(p);
   struct hdr_cmn *ch = HDR_CMN(p);
   struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
-  aorglu_rt_entry *rt;
+  aorglu_rt_entry *rt = rtable.rt_lookup(re->re_orig_dst);
+
   nsaddr_t nexthopid;
+  //RouteFailEvent *rfe;
 
  if(re->re_orig_src  == index) { /*This is my packet*/
 
@@ -1028,21 +1047,30 @@ AORGLU::recvError(Packet *p)
    
    fprintf(stderr,"Node %d: Looking up Location for Node %d\n", index, re->re_orig_dst);
    
+  /*We know the destinations location, so lets try to greedy forward recover*/
   if(le) {
+     /*We know where the dest. is, so lets AORGLU it*/
+     //rt->rt_flags = RTF_IN_REPAIR;
+     //rt_down(rt);
+     //rfe = new RouteFailEvent(rt);   
+    // Scheduler::instance().schedule(&locexptimer,&locexptimer.intr, LOC_EXP_TIME);
+   //  Scheduler::instance().schedule(&reparetxtimer,rfe, REPA_RETX_TIME);
+
      fprintf(stderr, "--Node %d found at %.2lf %.2lf %.2lf!\n", re->re_orig_dst, le->X_, le->Y_, le->Z_); 
      nexthopid = loctable.greedy_next_node(le->X_, le->Y_, le->Z_);
      if(nexthopid != index) {
         fprintf(stderr, "--Next GREEDY hop address: %d\n", nexthopid);
+        sendRepa(re->re_orig_dst, nexthopid); 
      }
      else {
         fprintf(stderr, "--Local Maximum Detected!\n");
      }
    }
    else {
+     rt_down(rt); /*Sadface.*/
      fprintf(stderr, "--No location entry found!!!\n");
   }
-
-   //sendRepa(ih->saddr(), nexthopid); 
+    Packet::free(p);
   }
   else if(ch->next_hop_ == index) { /*I am the next forwarding hop*/
    rt = rtable.rt_lookup(re->re_orig_src);
@@ -1050,7 +1078,7 @@ AORGLU::recvError(Packet *p)
    forward(rt, p, DELAY);
 
   }
-  else { /*Otherwise, drop the packet*/
+  else {
     Packet::free(p);
   }
 }
@@ -1164,10 +1192,10 @@ aorglu_rt_entry *rt = rtable.rt_lookup(dst);
    return;
  }
 
-#ifdef DEBUG
+
    fprintf(stderr, "(%2d) - %2d sending Route Request, dst: %d\n",
                     ++route_request, index, rt->rt_dst);
-#endif // DEBUG
+
 
  // Determine the TTL to be used this time. 
  // Dynamic TTL evaluation - SRD
@@ -1260,9 +1288,8 @@ struct hdr_ip *ih = HDR_IP(p);
 struct hdr_aorglu_reply *rp = HDR_AORGLU_REPLY(p);
 aorglu_rt_entry *rt = rtable.rt_lookup(ipdst);
 
-#ifdef DEBUG
-fprintf(stderr, "sending Reply from %d at %.2f\n", index, Scheduler::instance().clock());
-#endif // DEBUG
+fprintf(stderr, "sending Reply from %d at %.2f to %d THROUGH %d\n", index, Scheduler::instance().clock(), ipdst,rt->rt_nexthop);
+
  assert(rt);
 
   //csh - Get the x and y coordinates from the current node
@@ -1317,7 +1344,7 @@ aorglu_rt_entry *rt = rtable.rt_lookup(ipdst);
 if(!rt) 
   return;
 
- fprintf(stderr, "Sending LUDP from %d at %.2f", index, Scheduler::instance().clock());
+ fprintf(stderr, "Sending LUDP from %d at %.2f\n", index, Scheduler::instance().clock());
  assert(rt);
 
   //csh - Get the x, y, and z coordinates from the current node
@@ -1395,15 +1422,17 @@ AORGLU::recvLudp(Packet *p)
 //------ sendRepa() function definition ---------------------------------//
 //csh
 void
-AORGLU::sendRepa(nsaddr_t ipdst, nsaddr_t nexthop) {
-Packet *p = Packet::alloc();
-struct hdr_cmn *ch = HDR_CMN(p);
-struct hdr_ip *ih = HDR_IP(p);
-struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
+AORGLU::sendRepa(nsaddr_t ipdst, nsaddr_t nexthop) 
+{
+ Packet *p = Packet::alloc();
+ struct hdr_cmn *ch = HDR_CMN(p);
+ struct hdr_ip *ih = HDR_IP(p);
+ struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
+ aorglu_rt_entry *rt = rtable.rt_lookup(ipdst);
 
- fprintf(stderr, "Sending REPA from %d at %.2f", index, Scheduler::instance().clock());
  assert(rt);
- fprintf(stderr, "...yes\n");
+
+ fprintf(stderr, "Sending REPA from %d at %.2f\n", index, Scheduler::instance().clock());
 
  //csh - Get the x,y,z coordinates of the destination node
  //and add them to the packet header.
@@ -1412,21 +1441,18 @@ struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
  rpr->rpr_y = destNode->Y();
  rpr->rpr_z = destNode->Z();
 
-/*Do this elsewhere*/
-#if 0
- nexthopid = loctable.greedy_next(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
-
- if(nexthopid == index) {
-    //no greedy next node (LOCAL MAX OMG)
- }
-#endif
-
  //update REPA packet header info
  rpr->rpr_greedy = 1;
- rpr->rpr_type = AORGLUTYPE_LUDP;
+ rpr->rpr_type = AORGLUTYPE_REPA; 
+ rpr->rpr_dst_seqno = rt->rt_seqno; //This one causes the crash!
  rpr->rpr_dst = ipdst;
  rpr->rpr_src = index;
-   
+ rpr->rpr_timestamp = CURRENT_TIME;
+ rpr->path = new aorglu_path();
+ seqno += 2;
+ rpr->rpr_src_seqno = seqno;
+ rpr->rpr_hop_count = 1;
+
  //update common header info
  ch->ptype() = PT_AORGLU;
  ch->size() = IP_HDR_LEN + rpr->size();
@@ -1454,31 +1480,151 @@ struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
 void
 AORGLU::recvRepa(Packet *p)
 {
-  struct hdr_ip *ih = HDR_IP(p);
+//  struct hdr_ip *ih = HDR_IP(p);
   struct hdr_cmn *ch = HDR_CMN(p);
-  struct hdr_aorglu_ludp *rpr = HDR_AORGLU_LUDP(p);
+  struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
+
+  nsaddr_t nexthopid;
+
   fprintf(stderr, "Node %d: Recieved Repa packet!\n", index);
-  Packet::free(p);
+
+  /* We are either going to forward the REQUEST or generate a
+  * REPLY. Before we do anything, we make sure that the REVERSE
+  * route is in the route table.
+  */
+   aorglu_rt_entry *rt0; // rt0 is the reverse route 
+   
+   rt0 = rtable.rt_lookup(rpr->rpr_src);
+   fprintf(stderr, "Node %d adding entry for node %d\n", index, rpr->rpr_src);
+   
+   if(rt0 == 0) { /* if not in the route table */
+   // create an entry for the reverse route.
+     rt0 = rtable.rt_add(rpr->rpr_src);
+   }
+ 
+   rt0->rt_expire = max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE));
+
+   fprintf(stderr,"Node %d: RecvRepa ch->prev_hop_=%d\n", index, ch->prev_hop_);
+
+   if ( (rpr->rpr_src_seqno > rt0->rt_seqno ) ||
+    	((rpr->rpr_src_seqno == rt0->rt_seqno) && 
+	 (rpr->rpr_hop_count < rt0->rt_hops)) ) {
+   // If we have a fresher seq no. or lesser #hops for the 
+   // same seq no., update the rt entry. Else don't bother.
+
+   rt_update(rt0, rpr->rpr_src_seqno, rpr->rpr_hop_count, ch->prev_hop_,
+     	       max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE)) );
+
+     if (rt0->rt_req_timeout > 0.0) {
+     // Reset the soft state and 
+     // Set expiry time to CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT
+     // This is because route is used in the forward direction,
+     // but only sources get benefited by this change
+       rt0->rt_req_cnt = 0;
+       rt0->rt_req_timeout = 0.0; 
+       rt0->rt_req_last_ttl = rpr->rpr_hop_count;
+       rt0->rt_expire = CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT;
+     }
+
+     /* Find out whether any buffered packet can benefit from the 
+      * reverse route.
+      * May need some change in the following code - Mahesh 09/11/99
+      */
+     assert (rt0->rt_flags == RTF_UP);
+     Packet *buffered_pkt;
+     while ((buffered_pkt = rqueue.deque(rt0->rt_dst))) {
+       if (rt0 && (rt0->rt_flags == RTF_UP)) {
+	assert(rt0->rt_hops != INFINITY2);
+         forward(rt0, buffered_pkt, NO_DELAY);
+       }
+     }
+   } 
+   else {
+     fprintf(stderr, "Node %d reverse route to node %d NOT updated.\n", index, rpr->rpr_src);
+   }
+
+   // End for putting reverse route in rt table
+
+  /*This is my packet*/
+  if(rpr->rpr_dst  == index) {
+    /*If so, prepare to send the RREP packet*/
+    fprintf(stderr, "REPA successfully received by %d, sending RREP\n", index);
+
+  /*Forwarding nodes update their sequence */
+  seqno = max(seqno, rpr->rpr_dst_seqno)+1;
+  if (seqno%2) seqno++;
+ 
+    sendReply(rpr->rpr_src,           // IP Destination
+              1,                      // Hop Count
+              index,                  // Dest IP Address (csh - index is the addr of the current node)
+              seqno,                  // Dest Sequence Num
+              MY_ROUTE_TIMEOUT,       // Lifetime
+              rpr->rpr_timestamp);      // timestamp
+   
+   delete rpr->path; //Delete path object.
+   Packet::free(p); //Delete the old packet.
+   }
+   else if(ch->next_hop_ == index) { /*I am the next forwarding hop*/
+
+     nexthopid = loctable.greedy_next_node(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
+    
+     if(nexthopid != index) {
+         fprintf(stderr, "--Node %d: Next GREEDY hop address: %d\n", index, nexthopid);
+         forwardRepa(p, nexthopid);
+      }
+      else {
+         fprintf(stderr, "--Node %d: Local Maximum Detected!\n", index);
+      }
+   }
+   else { /*Otherwise, drop the packet*/
+     delete rpr->path; //Delete path object.
+     Packet::free(p);
+   }
 }
 //------END of sendRepa(...)---------------------------------------//
 
-//----- Definition of sendRepc() -------------------------------//
+//----- Definition of forwardRepa() -------------------------------//
 void
-AORGLU::sendRepc(nsaddr_t dst) 
+AORGLU::forwardRepa(Packet *p, nsaddr_t next) 
+{
+  //struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_cmn *ch = HDR_CMN(p);
+  struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
+  aorglu_rt_entry *rt = rtable.rt_lookup(rpr->rpr_dst);
+
+  /*Delete the path, if any*/
+  rpr->rpr_greedy = 1;
+  rpr->path->clear();
+  rpr->rpr_hop_count+= 1;
+  if(rt) rpr->rpr_dst_seqno = max(rt->rt_seqno, rpr->rpr_dst_seqno);
+
+ //update common header info
+ ch->ptype() = PT_AORGLU;
+ ch->size() = IP_HDR_LEN + rpr->size();
+ ch->iface() = -2;
+ ch->error() = 0;
+ ch->addr_type() = NS_AF_INET;
+ ch->next_hop_ = next;
+ ch->prev_hop_ = index;          // AORGLU hack
+ ch->direction() = hdr_cmn::DOWN;
+
+  fprintf(stderr, "Node %d: Forwarding Repa packet to %d! (prev_hop=%d)\n", index, next, ch->prev_hop_);
+  Scheduler::instance().schedule(target_, p, 0.);
+}
+//------END of forwardRepa(...)---------------------------------------//
+//----- Definition of forwardRepc() -------------------------------//
+void
+AORGLU::forwardRepc(Packet *p, nsaddr_t dst) 
 {
   fprintf(stderr, "Node %d: Sending Repc packet!\n", index);
 }
-//------END of sendRepc(...)---------------------------------------//
+//------END of forwardRepc(...)---------------------------------------//
 
 //----- Definition of recvRepc() -------------------------------//
 void
 AORGLU::recvRepc(Packet *p) 
 {
-  struct hdr_ip *ih = HDR_IP(p);
-  struct hdr_cmn *ch = HDR_CMN(p);
-  struct hdr_aorglu_ludp *rpr = HDR_AORGLU_LUDP(p);
   fprintf(stderr, "Node %d: Recieved Repc. packet!\n", index);
-  Packet::free(p);
 }
 //------END of recvRepc(...)---------------------------------------//
 
@@ -1488,7 +1634,7 @@ AORGLU::sendError(nsaddr_t dst, nsaddr_t unreachable) {
  Packet *p = Packet::alloc();
  struct hdr_cmn *ch = HDR_CMN(p);
  struct hdr_ip *ih = HDR_IP(p);
- struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
+ //struct hdr_aorglu_ludp *lu = HDR_AORGLU_LUDP(p);
  struct hdr_aorglu_error *re = HDR_AORGLU_ERROR(p);
  aorglu_rt_entry *rt = rtable.rt_lookup(dst);
  
@@ -1647,9 +1793,32 @@ AORGLU_Neighbor *nb = nbhead.lh_first;
    }
  }
 
- //handle_link_failure(id);
+ /*Delete any route for which there is no longer a 
+   next-hop neighbor*/
+ handle_link_failure(id);
 
 }
+
+
+/*Remove all routes through the dead neighbor.*/
+void
+AORGLU::handle_link_failure(nsaddr_t id)
+{
+ aorglu_rt_entry *rt, *rtn;
+
+ for(rt = rtable.head(); rt; rt = rtn) {  // for each rt entry
+   rtn = rt->rt_link.le_next; 
+   if ((rt->rt_hops != INFINITY2) && (rt->rt_nexthop == id) ) {
+     assert (rt->rt_flags == RTF_UP);
+     assert((rt->rt_seqno%2) == 0);
+     rt->rt_seqno++;
+     rt_down(rt);
+   }
+   // remove the lost neighbor from all the precursor lists
+   rt->pc_delete(id);
+ }   
+}
+
 
 
 /*

@@ -57,7 +57,8 @@ class aorglu_path {
  public:
 	aorglu_path(); 
 	~aorglu_path();
-
+        
+        void clear();
         aorglu_path_entry* head();
         aorglu_path_entry* path_add(nsaddr_t id, double, double, double);
         bool path_lookup(nsaddr_t id);
