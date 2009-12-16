@@ -81,7 +81,7 @@ aorglu_path::path_lookup(nsaddr_t id)
   return false;
 }
 
-/**Delete a pathation tabpe entry.*/
+/**Delete a path node entry.*/
 void
 aorglu_path::path_delete(nsaddr_t id)
 {
@@ -100,7 +100,7 @@ aorglu_path::path_delete(nsaddr_t id)
   }
 }
 
-/*Add new route entry.*/
+/*Add new path node entry.*/
 aorglu_path_entry*
 aorglu_path::path_add(nsaddr_t id, double X, double Y, double Z)
 {
@@ -132,3 +132,4 @@ aorglu_path::print()
     fprintf(stderr, "%d%10.2lf%10.2lf%10.2lf\n", pe->id, pe->X_, pe->Y_, pe->Z_); 
   }
 }
+

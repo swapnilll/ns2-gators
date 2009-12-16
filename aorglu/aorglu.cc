@@ -253,7 +253,7 @@ AORGLULocationUpdateTimer::handle(Event*)
              pow(currY - agent->lastY_, 2) +
              pow(currZ - agent->lastZ_, 2) );
   
-  fprintf(stderr, "Node %d : Distance Moved: %lf \n", agent->index, dD); 
+  //fprintf(stderr, "Node %d : Distance Moved: %lf \n", agent->index, dD); 
   
   /*If we moved outside of the allowed radius, we need to perform an update.*/ 
   if( dD >= LUDP_RADIUS ) { 
@@ -1615,8 +1615,14 @@ AORGLU::recvRepa(Packet *p)
 	struct hdr_aorglu_repa *rpr2 = HDR_AORGLU_REPA(p2);
 	rpr->rpr_greedy = 0;
 	rpr2->rpr_greedy = 0;	
-	rpr->rpr_dir = 1;
 	rpr->rpr_dir = 0;
+	rpr2->rpr_dir = 1;
+	aorglu_path newPath = aorglu_path();
+	rpr2->path = &newPath;
+//TEST
+	//rpr->path->path_add(1,5.0,1.0,0.0);
+        //fprintf(stderr,"P1_pathlen:%d, P2_pathlen:%d\n",rpr->path->length(),rpr2->path->length());
+//END_TEST
         forwardRepc(p);
 	forwardRepc(p2);
       }
@@ -1626,7 +1632,7 @@ AORGLU::recvRepa(Packet *p)
      Packet::free(p);
    }
 }
-//------END of sendRepa(...)---------------------------------------//
+//------END of recvRepa(...)---------------------------------------//
 
 //----- Definition of forwardRepa() -------------------------------//
 void
@@ -1670,8 +1676,9 @@ AORGLU::forwardRepc(Packet *p)
   //struct hdr_ip *ih = HDR_IP(p);
   struct hdr_cmn *ch = HDR_CMN(p);
   struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
+  double tx,ty,tz;
 
-  nsaddr_t nexthopid = 0; //TODO remove the initialization to zero, it was just for testing.
+  nsaddr_t nexthopid;
   nsaddr_t gnexthopid = loctable.greedy_next_node(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
 
   /*If we are no longer at a local maximum, then convert the REPC
@@ -1681,26 +1688,40 @@ AORGLU::forwardRepc(Packet *p)
     fprintf(stderr, "Node %d: REPC being converted to REPA to send to %d!\n", index,rpr->rpr_dst);
     forwardRepa(p,gnexthopid);
   }
-
   /*Otherwise, we are still at a local maximum*/
   else{
-#if 0
+    aorglu_loc_entry *le = loctable.loc_lookup(ch->prev_hop_);
+    fprintf(stderr,"Path Length = %d\n",rpr->path->length());
+    if(rpr->path->length() == 0){
+      //This is the initial REPC, so use DST coordinates
+      tx=rpr->rpr_x; ty=rpr->rpr_y; tz=rpr->rpr_z;
+    }
+    else{
+      //This is a forwarded REPC, so use prev_hop coordinates
+      tx=le->X_; ty=le->Y_; tz=le->Z_;
+    }
+
+    /*Add previouse node to beginning of the path list and continue
+      sending REPC using CW or CCW as specified in the packet header*/
+    rpr->path->path_add(ch->prev_hop_, le->X_, le->Y_, le->Z_);
+    rpr->path->print();
+
     /*Find next hop based on CW or CCW search (depending 
       on value in REPC packet header)*/
     if(rpr->rpr_dir == 0){
       /*clockwise*/
-      nexthopid = clockwisesearchfunction(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
+      nexthopid = loctable.right_hand_node(tx,ty,tz);
     }
-    else if{ 
+    else{ 
       /*counterclockwise*/
-      nexthopid = counterclockwisesearchfunction(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
+      nexthopid = loctable.left_hand_node(tx,ty,tz);
     }
-#endif
-  
-    /*Add previouse node to beginning of the path list and continue
-      sending REPC using CW or CCW as specified in the packet header*/
-    aorglu_loc_entry *le = loctable.loc_lookup(ch->prev_hop_);
-    rpr->path->path_add(ch->prev_hop_, le->X_, le->Y_, le->Z_);
+
+    if(nexthopid == index){
+      //There is no possible path so drop the REPC packet
+      delete rpr->path;
+      Packet::free(p);
+    }
 
     //Update REPC Packet header info
     rpr->rpr_hop_count+= 1;
@@ -1718,7 +1739,8 @@ AORGLU::forwardRepc(Packet *p)
 
     //Send the packet
     Scheduler::instance().schedule(target_, p, 0.);
-    fprintf(stderr, "Node %d: Forwarding REPC packet to %d!\n", index,nexthopid);
+    fprintf(stderr, "Node %d: Forwarding REPC packet to %d!", index,nexthopid);
+    (rpr->rpr_dir==0) ? fprintf(stderr,"(clockwise)\n") : fprintf(stderr,"(ccwise)\n");
   }
   
 }
