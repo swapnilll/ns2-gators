@@ -1110,6 +1110,7 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 
 	//csh - add trace for REPA packet
 	case AORGLUTYPE_REPA:
+	case AORGLUTYPE_REPC:
 		if (pt_->tagged()) {
 		    sprintf(pt_->buffer() + offset,
 			    "-aorglu:t %x -aorglu:g %d -aorglu:d %d -aorglu:s %d -aorglu:x %.2lf "
@@ -1137,14 +1138,15 @@ CMUTrace::format_aorglu(Packet *p, int offset)
 		} else {
 
 		    sprintf(pt_->buffer() + offset,
-			"[0x%x %d %d %d (%.2lf, %.2lf, %.2lf)] (REPA)",
+			"[0x%x %d %d %d (%.2lf, %.2lf, %.2lf)] (%s)",
 			rpr->rpr_type,
 			rpr->rpr_greedy,
                         rpr->rpr_dst,
                         rpr->rpr_src,
                         rpr->rpr_x,
                         rpr->rpr_y,
-                        rpr->rpr_z);
+                        rpr->rpr_z,
+			(rpr->rpr_type == AORGLUTYPE_REPA)?"REPA":"REPC");
 		}
                 break;
 

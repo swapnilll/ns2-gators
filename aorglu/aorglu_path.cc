@@ -34,7 +34,7 @@ aorglu_path::~aorglu_path()
 {
   aorglu_path_entry *pe;
 
-  /*Depete the list*/
+  /*Delete the list*/
   while((pe=pathhead.lh_first)) {
  	LIST_REMOVE(pe, path_link);
 	#ifdef DEBUG
@@ -63,7 +63,7 @@ aorglu_path::head()
   return this->pathhead.lh_first;
 }
 
-/**Check if there is a pathation entry for a node.*/
+/**Check if there is a path entry for a node.*/
 bool
 aorglu_path::path_lookup(nsaddr_t id)
 {
