@@ -52,6 +52,7 @@ class aorglu_loc_entry {
         double X_;
 	double Y_;
 	double Z_;
+
  protected:
         LIST_ENTRY(aorglu_loc_entry) loc_link;
 };
@@ -71,6 +72,9 @@ class aorglu_loctable {
         void              loc_delete(nsaddr_t id);
         aorglu_loc_entry* loc_lookup(nsaddr_t id);
         
+	nsaddr_t left_hand_node(double X_, double Y_, double Z_);
+        nsaddr_t right_hand_node(double X_, double Y_, double Z_);
+
         /*Route Maintenance Functions*/
         nsaddr_t greedy_next_node(double X_, double Y_, double Z_);
  
