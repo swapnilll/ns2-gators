@@ -22,6 +22,7 @@ This source was created to use with NS-2.
 #include <aorglu/aorglu_loctable.h>
 #include <aorglu/aorglu.h>
 
+#define PI 3.14159265
 #define DISTANCE(x0,y0,z0,x1,y1,z1) (sqrt( pow(x0-x1,2) + pow(y0-y1,2) + pow(z0-z1,2)))
 
 /*Route Maintenance Functions*/
@@ -67,6 +68,122 @@ aorglu_loctable::greedy_next_node(double X_, double Y_, double Z_)
     }   
   }
 
+  return addr;
+}
+
+nsaddr_t 
+aorglu_loctable::left_hand_node(double X_, double Y_, double Z_)
+{
+  AORGLU_Neighbor *nb;
+  aorglu_loc_entry *le;
+  MobileNode *mn;
+
+  double mDy, mAngle, cAngle;
+  double myX, myY, myZ;
+  double a,b,c,v; /*used in law of cosines*/
+
+  /*Initially set the min-addr to the sending node*/
+  nsaddr_t addr = ((AORGLU*)agent)->index;
+  mAngle = 2*PI;
+
+  /*Get My Coordinates*/
+  mn = (MobileNode*)Node::get_node_by_address(addr);
+  myX = mn->X();
+  myY = mn->Y();
+  myZ = mn->Z();
+
+  /*Z is currently not used in calculations ;(*/
+
+  /*Get agent neighbor list*/
+  nb = ((AORGLU*)agent)->nbhead.lh_first;
+  assert(nb);
+
+  mDy = (Y_-myY)/(X_-myX); /*Get the slope*/
+ 
+  /*For each neighbor*/ 
+  for(;nb;nb=nb->nb_link.le_next) {
+    le = loc_lookup(nb->nb_addr); /*Lookup the location*/
+    
+    /*Only include the neighbor IF we know the location*/
+    if(le) {
+      a = DISTANCE(myX, myY, 0, X_, Y_, 0);
+      b = DISTANCE(myX, myY, 0, le->X_, le->Y_, 0);
+      c = DISTANCE(X_, Y_, 0, le->X_, le->Y_, 0);
+      
+      /*Law of cosines*/
+      v = 0.5 * ( (a*a + b*b - c*c)/(a*b) ); 
+      cAngle = acos(v);
+
+      /*Check for which relative side of the line we are on*/
+      if((mDy*(le->X_-myX)+(myY-le->Y_)) > 0) {
+         cAngle += PI; /*We are on the RIGHT hand plane*/
+      }
+      
+      /*Check for the left-hand node condition*/
+      if( cAngle <= mAngle ) {
+         mAngle = cAngle;
+         addr = nb->nb_addr;
+       }
+    }   
+  }
+  return addr;
+}
+
+nsaddr_t 
+aorglu_loctable::right_hand_node(double X_, double Y_, double Z_)
+{
+  AORGLU_Neighbor *nb;
+  aorglu_loc_entry *le;
+  MobileNode *mn;
+
+  double mDy, mAngle, cAngle;
+  double myX, myY, myZ;
+  double a,b,c,v; /*used in law of cosines*/
+
+  /*Initially set the min-addr to the sending node*/
+  nsaddr_t addr = ((AORGLU*)agent)->index;
+  mAngle = 0;
+
+  /*Get My Coordinates*/
+  mn = (MobileNode*)Node::get_node_by_address(addr);
+  myX = mn->X();
+  myY = mn->Y();
+  myZ = mn->Z();
+
+  /*Z is currently not used in calculations ;(*/
+
+  /*Get agent neighbor list*/
+  nb = ((AORGLU*)agent)->nbhead.lh_first;
+  assert(nb);
+
+  mDy = (Y_-myY)/(X_-myX); /*Get the slope*/
+ 
+  /*For each neighbor*/ 
+  for(;nb;nb=nb->nb_link.le_next) {
+    le = loc_lookup(nb->nb_addr); /*Lookup the location*/
+    
+    /*Only include the neighbor IF we know the location*/
+    if(le) {
+      a = DISTANCE(myX, myY, 0, X_, Y_, 0);
+      b = DISTANCE(myX, myY, 0, le->X_, le->Y_, 0);
+      c = DISTANCE(X_, Y_, 0, le->X_, le->Y_, 0);
+      
+      /*Law of cosines*/
+      v = 0.5 * ( (a*a + b*b - c*c)/(a*b) ); 
+      cAngle = 2*PI-acos(v);
+
+      /*Check for which relative side of the line we are on*/
+      if((mDy*(le->X_-myX)+(myY-le->Y_)) < 0) {
+         cAngle -= PI; /*We are on the LEFT hand plane*/
+      }
+      
+      /*Check for the right-hand node condition*/
+      if( cAngle >= mAngle ) {
+         mAngle = cAngle;
+         addr = nb->nb_addr;
+       }
+    }   
+  }
   return addr;
 }
 
