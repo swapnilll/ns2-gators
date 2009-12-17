@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 This source was created to use with NS-2.
 */
 #include <stdio.h>
+#include <float.h>
 #include <aorglu/aorglu_loctable.h>
 #include <aorglu/aorglu.h>
 
@@ -93,14 +94,19 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
   myX = mn->X();
   myY = mn->Y();
   myZ = mn->Z();
+  
+  _DEBUG("My (%d) Coordinates: (%.2lf, %.2lf, %.2lf)\n",addr,myX,myY,myZ);
 
   /*Z is currently not used in calculations ;(*/
 
   /*Get agent neighbor list*/
   nb = ((AORGLU*)agent)->nbhead.lh_first;
   assert(nb);
-
-  mDy = (Y_-myY)/(X_-myX); /*Get the slope*/
+  
+  if(X_ == myX)
+    mDy = DBL_MAX;
+  else
+    mDy = (Y_-myY)/(X_-myX); /*Get the slope*/
  
   /*For each neighbor*/ 
   for(;nb;nb=nb->nb_link.le_next) {
@@ -172,7 +178,10 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_, aorglu_path *p
   nb = ((AORGLU*)agent)->nbhead.lh_first;
   assert(nb);
 
-  mDy = (Y_-myY)/(X_-myX); /*Get the slope*/
+  if(X_ == myX)
+    mDy = DBL_MAX;
+  else
+    mDy = (Y_-myY)/(X_-myX); /*Get the slope*/
  
   /*For each neighbor*/ 
   for(;nb;nb=nb->nb_link.le_next) {
@@ -282,7 +291,11 @@ aorglu_loctable::valid_location(aorglu_loc_entry *le, aorglu_path *path)
  
 
       /*Check the relative location of the node WRT the line BC*/
-      mDy = (pe->Y_ - myY)/(pe->X_ - myX);
+     if(pe->X_ == myX)
+        mDy = DBL_MAX;
+     else
+        mDy = (pe->Y_ - myY)/(pe->X_ - myX);
+     
       if((mDy*(pe->X_-npe->X_)+(npe->Y_-pe->Y_)) >= 0) { /*Current node is in the RHP*/
              if((mDy*(pe->X_-le->X_)+(le->Y_-pe->Y_)) <= 0) { /*Check if the other node is in the LHP*/
  		aBeta = 2*PI - aBeta;
@@ -352,7 +365,7 @@ aorglu_loctable::loc_lookup(nsaddr_t id)
 {
   aorglu_loc_entry *le = lochead.lh_first;
 
-  _DEBUG( "loc_lookup: Looking up address.\n");
+  //_DEBUG( "loc_lookup: Looking up address.\n");
 
   for(;le;le = le->loc_link.le_next) {
 	if(le->id == id)
@@ -384,7 +397,7 @@ aorglu_loctable::loc_add(nsaddr_t id, double X, double Y, double Z)
 {
   aorglu_loc_entry *le;
   
-  _DEBUG( "loc_add() Adding new list entry.\n");
+  //_DEBUG( "loc_add() Adding new list entry.\n");
 
   /*Check to see if there is already a loc-entry*/
   le = loc_lookup(id);

@@ -1010,7 +1010,7 @@ if(ih->daddr() == index || suppress_reply) {
    _DEBUG( "The current node address is %d\n", index);
    _DEBUG( "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
    #ifdef DEBUG
-   loctable.print();
+   //loctable.print();
    #endif
    Packet::free(p);
  }
@@ -1750,7 +1750,7 @@ AORGLU::forwardRepc(Packet *p)
  
    rt0->rt_expire = max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE));
 
-   _DEBUG("Node %d: RecvRepa ch->prev_hop_=%d\n", index, ch->prev_hop_);
+   _DEBUG("Node %d: RecvRepc ch->prev_hop_=%d\n", index, ch->prev_hop_);
 
    if ( (rpr->rpr_src_seqno > rt0->rt_seqno ) ||
     	((rpr->rpr_src_seqno == rt0->rt_seqno) && 
@@ -1812,12 +1812,16 @@ AORGLU::forwardRepc(Packet *p)
     else{
       //This is a forwarded REPC, so use prev_hop coordinates for RH/LH search
       tx=le->X_; ty=le->Y_; tz=le->Z_;
-   
+    }
+
     /*Add previous node to beginning of the path list and continue
       sending REPC using CW or CCW as specified in the packet header*/
-    rpr->path->path_add(ch->prev_hop_, le->X_, le->Y_, le->Z_);
-
+    if((rpr->path->length() != 0)){
+       if(!rpr->path->path_lookup(ch->prev_hop_))
+          rpr->path->path_add(ch->prev_hop_, le->X_, le->Y_, le->Z_);
     }
+    else if(ch->prev_hop_ != index)
+       rpr->path->path_add(ch->prev_hop_, le->X_, le->Y_, le->Z_);
 
 
     #ifdef DEBUG
@@ -1839,6 +1843,9 @@ AORGLU::forwardRepc(Packet *p)
       nexthopid = loctable.left_hand_node(tx,ty,tz,rpr->path);
       _DEBUG( "Node %d: LHR Result: %d\n",index,nexthopid);
     }
+
+    if(ch->prev_hop_ == index)
+       rpr->path->path_add(index, mn->X(), mn->Y(), mn->Z());
 
     if(nexthopid == index){
       _DEBUG( "Deleting the path function since %d == %d\n", nexthopid, index);
@@ -1926,7 +1933,7 @@ struct hdr_cmn *ch = HDR_CMN(p);
 struct hdr_ip *ih = HDR_IP(p);
 struct hdr_aorglu_reply *rh = HDR_AORGLU_REPLY(p);
 
-_DEBUG( "sending Hello from %d at %.2f\n", index, Scheduler::instance().clock());
+//_DEBUG( "sending Hello from %d at %.2f\n", index, Scheduler::instance().clock());
 
   //csh - Get the x and y coordinates from the current node
   //and add them to the packet header.
@@ -1980,11 +1987,11 @@ AORGLU_Neighbor *nb;
    loctable.loc_add(ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
 
    //csh - print out coordinates when reply is received
-   _DEBUG( "recvHello:\n");
-   _DEBUG( "The current node address is %d\n", index);
-   _DEBUG( "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
+   //_DEBUG( "recvHello:\n");
+   //_DEBUG( "The current node address is %d\n", index);
+   //_DEBUG( "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
    #ifdef DEBUG
-   loctable.print(); /*Print out the formatted location table*/
+   //loctable.print(); /*Print out the formatted location table*/
    #endif
  Packet::free(p);
 }
