@@ -277,6 +277,7 @@ OBJ_CC = \
 	aorglu/aorglu_loctable.o aorglu/aorglu_path.o \
 	aorglu/aorglu_logs.o aorglu/aorglu.o \
 	aorglu/aorglu_rtable.o aorglu/aorglu_rqueue.o \
+	aorglu/aorglu_debug.o \
 	aomdv/aomdv_logs.o aomdv/aomdv.o \
 	aomdv/aomdv_rtable.o aomdv/aomdv_rqueue.o \
 	common/ns-process.o \
