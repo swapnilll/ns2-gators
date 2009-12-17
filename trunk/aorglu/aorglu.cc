@@ -1114,6 +1114,59 @@ AORGLU::init_route_maintenance(aorglu_rt_entry *rt, aorglu_loc_entry *le)
    }
    else { 
      _DEBUG( "--Local Maximum Detected!\n");
+     
+     Packet *p1 = Packet::alloc();
+     struct hdr_ip *ih = HDR_IP(p1);
+     struct hdr_cmn *ch = HDR_CMN(p1);
+     struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p1);
+     
+     //aorglu_rt_entry *rt = rtable.rt_lookup(rpr->rpr_dst);
+     aorglu_loc_entry *le = loctable.loc_lookup(dst);
+     
+     if(!le) {
+       Packet::free(p1);
+       return;
+     }
+
+     rpr->rpr_x = le->X_;
+     rpr->rpr_y = le->Y_;
+     rpr->rpr_z = le->Z_;
+     
+     rpr->rpr_greedy = 0;
+     rpr->rpr_type = AORGLUTYPE_REPC; 
+     //rpr->rpr_dst_seqno = ((rt)?rt->rt_seqno:seqno); 
+     rpr->rpr_dst = dst;
+     rpr->rpr_src = index;
+     rpr->rpr_timestamp = CURRENT_TIME;
+     rpr->path = new aorglu_path();
+     seqno += 2;
+     rpr->rpr_src_seqno = seqno;
+     rpr->rpr_hop_count = 1;
+
+     //update common header info
+     ch->ptype() = PT_AORGLU;
+     ch->size() = IP_HDR_LEN + rpr->size();
+     ch->iface() = -2;
+     ch->error() = 0;
+     ch->addr_type() = NS_AF_INET;
+     ch->prev_hop_ = index;          // AORGLU hack
+     ch->direction() = hdr_cmn::DOWN;
+
+     //update the IP packet header info
+     ih->saddr() = index;
+     ih->daddr() = dst;
+     ih->sport() = RT_PORT;
+     ih->dport() = RT_PORT;
+     ih->ttl_ = NETWORK_DIAMETER;
+
+     Packet *p2 = p1->copy();
+     struct hdr_aorglu_repa *rpr2 = HDR_AORGLU_REPA(p2);	
+     rpr->rpr_dir = 0;
+     rpr2->rpr_dir = 1;
+     rpr2->path = new aorglu_path();
+
+     forwardRepc(p1);
+     forwardRepc(p2);
    }
 }
 
@@ -1130,7 +1183,7 @@ struct hdr_ip *ih = HDR_IP(p);
 
   _DEBUG( "%s: calling drop()\n", __PRETTY_FUNCTION__);
 
- 
+ 	
   drop(p, DROP_RTR_TTL);
   return;
  }
@@ -1466,10 +1519,18 @@ AORGLU::sendRepa(nsaddr_t ipdst, nsaddr_t nexthop)
 
  //csh - Get the x,y,z coordinates of the destination node
  //and add them to the packet header.
- MobileNode *destNode = (MobileNode*) Node::get_node_by_address(ipdst);
- rpr->rpr_x = destNode->X();
- rpr->rpr_y = destNode->Y();
- rpr->rpr_z = destNode->Z();
+ aorglu_loc_entry *le = loctable.loc_lookup(ipdst);
+
+ /*Don't know a path to the destination, so we bail out*/
+ if(!le) {
+   _DEBUG("Node %d : Location for destination %d UNKNOWN!\n",index, ipdst);
+   Packet::free(p);
+   return;
+ }     
+
+ rpr->rpr_x = le->X_;
+ rpr->rpr_y = le->Y_;
+ rpr->rpr_z = le->Z_;
 
  //update REPA packet header info
  rpr->rpr_greedy = 1;
@@ -1611,10 +1672,6 @@ AORGLU::recvRepa(Packet *p)
 	rpr->rpr_dir = 0;
 	rpr2->rpr_dir = 1;
 	rpr2->path = new aorglu_path();
-//TEST
-	//rpr->path->path_add(1,5.0,1.0,0.0);
-        //_DEBUG("P1_pathlen:%d, P2_pathlen:%d\n",rpr->path->length(),rpr2->path->length());
-//END_TEST
         forwardRepc(p);
 	forwardRepc(p2);
       }
@@ -1666,10 +1723,13 @@ AORGLU::forwardRepa(Packet *p, nsaddr_t next)
 void
 AORGLU::forwardRepc(Packet *p) 
 {
+  MobileNode *mn;
   //struct hdr_ip *ih = HDR_IP(p);
   struct hdr_cmn *ch = HDR_CMN(p);
   struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
   double tx,ty,tz;
+
+  mn = (MobileNode*)Node::get_node_by_address(index);
 
   nsaddr_t nexthopid;
   nsaddr_t gnexthopid = loctable.greedy_next_node(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
@@ -1742,7 +1802,9 @@ AORGLU::forwardRepc(Packet *p)
   }
   /*Otherwise, we are still at a local maximum*/
   else{
+      
     aorglu_loc_entry *le = loctable.loc_lookup(ch->prev_hop_);
+
     if(rpr->path->length() == 0){
       //This is an initial REPC, so use DST coordinates for RH/LH search
       tx=rpr->rpr_x; ty=rpr->rpr_y; tz=rpr->rpr_z;
@@ -1750,11 +1812,13 @@ AORGLU::forwardRepc(Packet *p)
     else{
       //This is a forwarded REPC, so use prev_hop coordinates for RH/LH search
       tx=le->X_; ty=le->Y_; tz=le->Z_;
-    }
-
+   
     /*Add previous node to beginning of the path list and continue
       sending REPC using CW or CCW as specified in the packet header*/
     rpr->path->path_add(ch->prev_hop_, le->X_, le->Y_, le->Z_);
+
+    }
+
 
     #ifdef DEBUG
     rpr->path->print();
