@@ -31,6 +31,7 @@ This source was created to use with NS-2.
 #include <node.h>
 
 #include <aorglu/aorglu_rtable.h>
+#include <aorglu/aorglu_path.h>
 
 #define CURRENT_TIME Scheduler::instance().clock()
 
@@ -72,8 +73,10 @@ class aorglu_loctable {
         void              loc_delete(nsaddr_t id);
         aorglu_loc_entry* loc_lookup(nsaddr_t id);
         
-	nsaddr_t left_hand_node(double X_, double Y_, double Z_);
-        nsaddr_t right_hand_node(double X_, double Y_, double Z_);
+	nsaddr_t left_hand_node(double X_, double Y_, double Z_, aorglu_path *path);
+        nsaddr_t right_hand_node(double X_, double Y_, double Z_, aorglu_path *path);
+
+	bool valid_location(aorglu_loc_entry *le, aorglu_path *path);
 
         /*Route Maintenance Functions*/
         nsaddr_t greedy_next_node(double X_, double Y_, double Z_);
