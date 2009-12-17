@@ -37,32 +37,12 @@ The AORGLU code developed by the CMU/MONARCH group was optimized and tuned by Sa
 #include <node.h>
 #include <cmu-trace.h>
 
+#include <aorglu/aorglu_debug.h>
+
 //#include <energy-model.h>
-#include <stdarg.h>
 
 #define max(a,b)        ( (a) > (b) ? (a) : (b) )
 #define CURRENT_TIME    Scheduler::instance().clock()
-
-#define DEBUG
-
-void 
-_my_debug(const char file[],const char fn[],const int line, const char format[], ...)
-{
-  va_list ap;
-  
-  fprintf(stderr, "%-5.3lf @ %s:%s:%d: ", CURRENT_TIME, file, fn, line);
-
-  va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  va_end(ap);
-}
-
-
-#ifdef DEBUG
-#define _DEBUG(format,...) _my_debug(__FILE__,__FUNCTION__,__LINE__,format, ##__VA_ARGS__)
-#else
-#define _DEBUG(format,...) ((void*)0)
-#endif
 
 //static int extra_route_reply = 0;
 //static int limit_route_request = 0;

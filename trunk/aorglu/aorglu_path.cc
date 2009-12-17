@@ -22,8 +22,7 @@ This source was created to use with NS-2.
 #include <aorglu/aorglu_path.h>
 #include <aorglu/aorglu.h>
 
-#define DEBUG
-
+#include <aorglu/aorglu_debug.h>
 
 aorglu_path::aorglu_path()
 {
@@ -39,9 +38,7 @@ aorglu_path::~aorglu_path()
   /*Delete the list*/
   while((pe=pathhead.lh_first)) {
  	LIST_REMOVE(pe, path_link);
-	#ifdef DEBUG
-	fprintf(stderr,"~Deleting path node %d\n", pe->id);
-        #endif
+	_DEBUG("~Deleting path node %d\n", pe->id);
  	delete pe;
   }
 }
@@ -71,14 +68,12 @@ aorglu_path::path_lookup(nsaddr_t id)
 {
   aorglu_path_entry *pe = pathhead.lh_first;
 
-  #ifdef DEBUG
-  fprintf(stderr, "path_lookup: Looking up address.\n");
-  #endif
+  _DEBUG( "path_lookup: Looking up address.\n");
 
   assert(pe);
 
   for(;pe;pe = pe->path_link.le_next) {
-      fprintf(stderr, "PathLookup: Looking at %d\n", pe->id);
+      _DEBUG( "PathLookup: Looking at %d\n", pe->id);
       if(pe->id == id)
 	  return true;
   }
@@ -92,9 +87,7 @@ aorglu_path::path_delete(nsaddr_t id)
 {
   aorglu_path_entry *pe = pathhead.lh_first;
  
-  #ifdef DEBUG
-  fprintf(stderr, "path_delete() Depeting list entry!\n");
-  #endif
+  _DEBUG( "path_delete() Depeting list entry!\n");
 
   assert(pe);
 
@@ -112,10 +105,8 @@ aorglu_path_entry*
 aorglu_path::path_add(nsaddr_t id, double X, double Y, double Z)
 {
   aorglu_path_entry *pe;
-  
-  #ifdef DEBUG
-  fprintf(stderr, "path_add() Adding new list entry.\n");
-  #endif
+
+  _DEBUG( "path_add() Adding new list entry.\n");
 
   pe = new aorglu_path_entry();
   LIST_INSERT_HEAD(&pathhead, pe, path_link); 
@@ -134,9 +125,9 @@ void
 aorglu_path::print()
 {
   aorglu_path_entry *pe = pathhead.lh_first;
-  fprintf(stderr,"%s%9s%10s%10s\n", "Node", "X", "Y", "Z"); 
+  _DEBUG("%s%9s%10s%10s\n", "Node", "X", "Y", "Z"); 
   for(;pe;pe=pe->path_link.le_next) {
-    fprintf(stderr, "%d%10.2lf%10.2lf%10.2lf\n", pe->id, pe->X_, pe->Y_, pe->Z_); 
+    _DEBUG( "%d%10.2lf%10.2lf%10.2lf\n", pe->id, pe->X_, pe->Y_, pe->Z_); 
   }
 }
 

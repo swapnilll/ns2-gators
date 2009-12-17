@@ -22,6 +22,8 @@ This source was created to use with NS-2.
 #include <aorglu/aorglu_loctable.h>
 #include <aorglu/aorglu.h>
 
+#include <aorglu/aorglu_debug.h>
+
 #define PI 3.14159265
 #define DISTANCE(x0,y0,z0,x1,y1,z1) (sqrt( pow(x0-x1,2) + pow(y0-y1,2) + pow(z0-z1,2)))
 
@@ -315,9 +317,7 @@ aorglu_loctable::~aorglu_loctable()
   /*Delete the list*/
   while((le=lochead.lh_first)) {
  	LIST_REMOVE(le, loc_link);
-	#ifdef DEBUG
-	fprintf(stderr,"~Deleting loc entry %d\n", le->id);
-        #endif
+	_DEBUG("~Deleting loc entry %d\n", le->id);
  	delete le;
   }
 }
@@ -336,9 +336,7 @@ aorglu_loctable::loc_lookup(nsaddr_t id)
 {
   aorglu_loc_entry *le = lochead.lh_first;
 
-  #ifdef DEBUG
-  fprintf(stderr, "loc_lookup: Looking up address.\n");
-  #endif
+  _DEBUG( "loc_lookup: Looking up address.\n");
 
   for(;le;le = le->loc_link.le_next) {
 	if(le->id == id)
@@ -354,9 +352,7 @@ aorglu_loctable::loc_delete(nsaddr_t id)
 {
   aorglu_loc_entry *le = lochead.lh_first;
  
-  #ifdef DEBUG
-  fprintf(stderr, "loc_delete() Deleting list entry!\n");
-  #endif
+  _DEBUG( "loc_delete() Deleting list entry!\n");
 
   for(;le;le=le->loc_link.le_next) {
      if(le->id == id){
@@ -372,9 +368,7 @@ aorglu_loctable::loc_add(nsaddr_t id, double X, double Y, double Z)
 {
   aorglu_loc_entry *le;
   
-  #ifdef DEBUG
-  fprintf(stderr, "loc_add() Adding new list entry.\n");
-  #endif
+  _DEBUG( "loc_add() Adding new list entry.\n");
 
   /*Check to see if there is already a loc-entry*/
   le = loc_lookup(id);
@@ -401,8 +395,8 @@ void
 aorglu_loctable::print()
 {
   aorglu_loc_entry *le = lochead.lh_first;
-  fprintf(stderr,"%s%9s%5s%10s%10s\n", "Node", "Expire", "X", "Y", "Z"); 
+  _DEBUG("%s%9s%5s%10s%10s\n", "Node", "Expire", "X", "Y", "Z"); 
   for(;le;le=le->loc_link.le_next) {
-    fprintf(stderr, "%d%10.2lf%10.2lf%10.2lf%10.2lf\n", le->id, le->loc_expire, le->X_, le->Y_, le->Z_); 
+    _DEBUG( "%d%10.2lf%10.2lf%10.2lf%10.2lf\n", le->id, le->loc_expire, le->X_, le->Y_, le->Z_); 
   }
 }
