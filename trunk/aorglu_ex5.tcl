@@ -16,9 +16,9 @@ set val(y)              1000                  ;# Y dimension of topography
 set val(stop)        	50               ;# time of simulation end
 
 set ns            [new Simulator]
-set tracefd       [open tr2.tr w]
+set tracefd       [open tr5.tr w]
 set windowVsTime2 [open win.tr w]
-set namtrace      [open nm2.nam w]
+set namtrace      [open nm5.nam w]
 
 $ns trace-all $tracefd
 $ns namtrace-all-wireless $namtrace $val(x) $val(y)
@@ -30,7 +30,7 @@ $topo load_flatgrid $val(x) $val(y)
 
 create-god $val(nn)
 
-#
+
 #  Create nn mobilenodes [$val(nn)] and attach them to the channel.
 #
 
