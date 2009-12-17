@@ -176,7 +176,7 @@ AORGLU::AORGLU(nsaddr_t id) : Agent(PT_AORGLU), reparetxtimer(this), locexptimer
 
 #define FREQUENCY 0.5
 
-/*Maintenance Timers*/
+/*Maintenance Timers*/ 
 void
 AORGLU_LOC_EXP_Timer::handle(Event *event)
 {    
@@ -187,7 +187,7 @@ AORGLU_LOC_EXP_Timer::handle(Event *event)
   else {
     _DEBUG( "-->LOC_EXP_TIMER Expired, but the route is not fixed, yet... :(\n");
     agent->rt_down(rfe->rt);
-    agent->sendRequest(rfe->rt->rt_dst); /*Send another route requeeeessstttttt*/
+    agent->sendRequest(rfe->rt->rt_dst); /*Send another route requeeeessttttt*/
   }
 
   delete event;
@@ -636,7 +636,10 @@ Packet *p;
      }
      rt->rt_seqno++;
      assert (rt->rt_seqno%2);
-     rt_down(rt);
+     /*Mark the route as DOWN unless it is in the process of being repaired*/
+     if(rt->rt_flags != RTF_IN_REPAIR){
+        rt_down(rt);
+     }
    }
    else if (rt->rt_flags == RTF_UP) {
    // If the route is not expired,
@@ -1631,8 +1634,9 @@ AORGLU::forwardRepa(Packet *p, nsaddr_t next)
   aorglu_rt_entry *rt = rtable.rt_lookup(rpr->rpr_dst);
 
   /*Delete the path, if any*/
+  rpr->rpr_type = AORGLUTYPE_REPA;
   rpr->rpr_greedy = 1;
-  rpr->path->clear(); //TODO: this seems to be causing a seg-fault!
+  rpr->path->clear();
   rpr->rpr_hop_count+= 1;
   if(rt) rpr->rpr_dst_seqno = max(rt->rt_seqno, rpr->rpr_dst_seqno);
 
@@ -1693,18 +1697,25 @@ AORGLU::forwardRepc(Packet *p)
     /*Add previous node to beginning of the path list and continue
       sending REPC using CW or CCW as specified in the packet header*/
     rpr->path->path_add(ch->prev_hop_, le->X_, le->Y_, le->Z_);
+
     #ifdef DEBUG
     rpr->path->print();
     #endif
+	
     /*Find next hop based on CW or CCW search (depending 
       on value in REPC packet header)*/
     if(rpr->rpr_dir == 0){
       /*clockwise*/
+      fprintf(stderr, "Node %d: looking up RHR next node.\n",index);
       nexthopid = loctable.right_hand_node(tx,ty,tz,rpr->path);
+      fprintf(stderr, "Node %d: RHR Result: %d\n",index,nexthopid);
+      
     }
     else{ 
       /*counterclockwise*/
+      fprintf(stderr, "Node %d: looking up LHR next node.\n",index);
       nexthopid = loctable.left_hand_node(tx,ty,tz,rpr->path);
+      fprintf(stderr, "Node %d: LHR Result: %d\n",index,nexthopid);
     }
 
     if(nexthopid == index){

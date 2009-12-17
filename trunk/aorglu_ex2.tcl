@@ -11,7 +11,7 @@ set val(ant)            Antenna/OmniAntenna        ;# antenna model
 set val(ifqlen)         50                         ;# max packet in ifq
 set val(nn)             13                          ;# number of mobilenodes
 set val(rp)             AORGLU                     ;# routing protocol
-set val(x)              1000                  ;# X dimension of topography
+set val(x)              1200                  ;# X dimension of topography
 set val(y)              1000                  ;# Y dimension of topography
 set val(stop)        	50               ;# time of simulation end
 
@@ -109,7 +109,7 @@ $node_(12) set Z_ 0.0
 
 
 # Generation of movements
-$ns at 2.0 "$node_(4) setdest 900.0 110.0 50.0"
+$ns at 2.0 "$node_(4) setdest 1100.0 50.0 50.0"
 $ns at 11.0 "$node_(12) setdest 510.0 90.0 60.0"
 #$ns at 110.0 "$node_(0) setdest 480.0 300.0 5.0"
 

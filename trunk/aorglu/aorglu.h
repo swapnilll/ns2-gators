@@ -83,8 +83,8 @@ class AORGLU;
 #define REV_ROUTE_LIFE          6				// 5  seconds
 #define BCAST_ID_SAVE           6				// 3 seconds
 
-#define REPA_RETX_TIME          1
-#define LOC_EXP_TIME            2 
+#define REPA_RETX_TIME          3
+#define LOC_EXP_TIME            12
 
 /*RGK - LOC_CACHE_EXP Time (How long a cache entry lives. 0 disables)*/
 #define LOC_CACHE_EXP -1 
@@ -130,7 +130,7 @@ class AORGLU;
 #define ARP_DELAY 0.01      // fixed delay to keep arp happy
 
 
-#define HELLO_INTERVAL          1               // 1000 ms
+#define HELLO_INTERVAL          .5               // 1000 ms
 #define ALLOWED_HELLO_LOSS      3               // packets
 #define BAD_LINK_LIFETIME       3               // 3000 ms
 #define LUDP_INTERVAL		5		// 5000 ms - csh
