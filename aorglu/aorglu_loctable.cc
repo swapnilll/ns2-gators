@@ -72,7 +72,7 @@ aorglu_loctable::greedy_next_node(double X_, double Y_, double Z_)
 }
 
 nsaddr_t 
-aorglu_loctable::left_hand_node(double X_, double Y_, double Z_)
+aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *path)
 {
   AORGLU_Neighbor *nb;
   aorglu_loc_entry *le;
@@ -106,6 +106,11 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_)
     
     /*Only include the neighbor IF we know the location*/
     if(le) {
+      if(!valid_location(le, path)) {
+       // printf("INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
+        continue;
+      }
+
       a = DISTANCE(myX, myY, 0, X_, Y_, 0);
       b = DISTANCE(myX, myY, 0, le->X_, le->Y_, 0);
       c = DISTANCE(X_, Y_, 0, le->X_, le->Y_, 0);
@@ -114,10 +119,17 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_)
       v = 0.5 * ( (a*a + b*b - c*c)/(a*b) ); 
       cAngle = acos(v);
 
-      /*Check for which relative side of the line we are on*/
-      if((mDy*(le->X_-myX)+(myY-le->Y_)) > 0) {
-         cAngle += PI; /*We are on the RIGHT hand plane*/
+      if((X_ - myX) >= 0) {  /*QUADRANT I and IV*/
+         if((mDy*(le->X_-myX)+(myY-le->Y_)) > 0) {
+                cAngle = 2*PI - cAngle;
+         } 
       }
+      else {                /*QUADRANT II and III*/
+       if((mDy*(le->X_-myX)+(myY-le->Y_)) < 0) {
+                cAngle = 2*PI - cAngle;
+         } 
+      }
+
       
       /*Check for the left-hand node condition*/
       if( cAngle <= mAngle ) {
@@ -130,7 +142,7 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_)
 }
 
 nsaddr_t 
-aorglu_loctable::right_hand_node(double X_, double Y_, double Z_)
+aorglu_loctable::right_hand_node(double X_, double Y_, double Z_, aorglu_path *path)
 {
   AORGLU_Neighbor *nb;
   aorglu_loc_entry *le;
@@ -164,6 +176,11 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_)
     
     /*Only include the neighbor IF we know the location*/
     if(le) {
+      if(!valid_location(le, path)) {
+        //printf("INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
+        continue;
+      }
+
       a = DISTANCE(myX, myY, 0, X_, Y_, 0);
       b = DISTANCE(myX, myY, 0, le->X_, le->Y_, 0);
       c = DISTANCE(X_, Y_, 0, le->X_, le->Y_, 0);
@@ -172,9 +189,15 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_)
       v = 0.5 * ( (a*a + b*b - c*c)/(a*b) ); 
       cAngle = 2*PI-acos(v);
 
-      /*Check for which relative side of the line we are on*/
-      if((mDy*(le->X_-myX)+(myY-le->Y_)) < 0) {
-         cAngle -= PI; /*We are on the LEFT hand plane*/
+      if((X_ - myX) >= 0) {  /*QUADRANT I and IV*/
+         if((mDy*(le->X_-myX)+(myY-le->Y_)) > 0) {
+                cAngle = 2*PI - cAngle;
+         } 
+      }
+      else {                /*QUADRANT II and III*/
+       if((mDy*(le->X_-myX)+(myY-le->Y_)) < 0) {
+                cAngle = 2*PI - cAngle;
+         } 
       }
       
       /*Check for the right-hand node condition*/
@@ -185,6 +208,98 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_)
     }   
   }
   return addr;
+}
+
+bool
+aorglu_loctable::valid_location(aorglu_loc_entry *le, aorglu_path *path)
+{
+   aorglu_path_entry* pe, *npe;
+   
+   double mDy;
+   double dAB, dBC, dCA, dBX, dCX;
+   double aAlpha, aBeta, v;
+
+   double myX, myY, myZ;
+   myX = myY = myZ = 0.0; /*Need to change this later*/
+
+   /*Iterate over the path entry list*/
+   pe=path->head();
+
+   while((npe=pe->path_link.le_next)) {
+      /*Make sure the current candidate location isn't in the path or same location.*/
+      if( (le->id == pe->id)) {
+        //printf("INVALID PATH: CURRENT NODE IS ALREADY IN PATH!\n");
+        return false;
+      }
+
+      if(((le->X_ == pe->X_) && (le->Y_ == pe->Y_) && (le->Z_ == pe->Z_))) {
+       // printf("INVALID PATH: CURRENT NODE IS AT SAME LOCATION AS NODE IN PATH.\n");
+        return false; 
+      }
+
+      /*Get triangle edges*/
+      dAB = DISTANCE(npe->X_,npe->Y_,npe->Z_,pe->X_,pe->Y_,pe->Z_);
+      dBC = DISTANCE(pe->X_, pe->Y_, pe->Z_, myX, myY, myZ);
+      dCA = DISTANCE(myX, myY, myZ, npe->X_, npe->Y_, npe->Z_);
+
+      dBX = DISTANCE(pe->X_, pe->Y_, pe->Z_, le->X_, le->Y_, le->Z_);
+      dCX = DISTANCE(myX, myY, myZ, le->X_, le->Y_, le->Z_);
+
+      /*Get internal triangle angle*/
+      v = 0.5 * ( (dCA*dCA + dBC*dBC - dAB*dAB)/(dCA*dBC) ); 
+      aAlpha = acos(v); 
+
+      /*Get angle of the opposing point*/
+      v = 0.5 * ( (dCX*dCX + dBC*dBC - dBX*dBX)/(dCX*dBC) ); 
+      aBeta = acos(v); 
+      
+     // printf("Node A = (%.2lf, %.2lf)\n", npe->X_, npe->Y_);
+     // printf("Node B = (%.2lf, %.2lf)\n", pe->X_, pe->Y_);
+     // printf("Node C = (%.2lf, %.2lf)\n", myX, myY);
+    //  printf("Node X = (%.2lf, %.2lf)\n", le->X_, le->Y_);
+
+     // printf("dCX = %lf ; dBC = %lf ; dBX = %lf ; v= %lf\n", dCX, dBC, dBX, v);
+
+     // printf("-->alpha= %lf beta = %lf\n", aAlpha, aBeta);
+ 
+
+      /*Check the relative location of the node WRT the line BC*/
+      mDy = (pe->Y_ - myY)/(pe->X_ - myX);
+      if((mDy*(pe->X_-npe->X_)+(npe->Y_-pe->Y_)) >= 0) { /*Current node is in the RHP*/
+             if((mDy*(pe->X_-le->X_)+(le->Y_-pe->Y_)) <= 0) { /*Check if the other node is in the LHP*/
+ 		aBeta = 2*PI - aBeta;
+             }
+       }
+       else { /*Current node is in the LHP*/
+            if((mDy*(pe->X_-le->X_)+(le->Y_-pe->Y_)) > 0) { /*Check if the other node is in the RHP*/
+ 		aBeta = 2*PI - aBeta;
+            }
+       }
+
+
+     /*The point lies in a similar triangle*/
+     if(aBeta <= aAlpha) { 
+       mDy = (pe->Y_-npe->Y_)/(pe->X_-npe->X_); /*Calculate the slope*/
+ 
+       if((mDy*(pe->X_-myX)+(myY-pe->Y_)) >= 0) { /*Current node is in the RHP*/
+           //  printf("--Current node detected in RHP\n");
+             if((mDy*(pe->X_-le->X_)+(le->Y_-pe->Y_)) <= 0) { /*Check if the other node is in the LHP*/
+            //    printf("INVALID EDGE: CROSS EDGE DETECTED\n");
+                return false; 
+             }
+       }
+       else { /*Current node is in the LHP*/
+           // printf("--Current node detected in LHP\n");
+            if((mDy*(pe->X_-le->X_)+(le->Y_-pe->Y_)) > 0) { /*Check if the other node is in the RHP*/
+               // printf("INVALID EDGE: CROSS EDGE DETECTED\n");
+                return false; 
+            }
+       }
+     }
+      pe = npe;
+   }
+   
+   return true; /*No edges crossed*/
 }
 
 /** Need to be given a neighbor cache list*/

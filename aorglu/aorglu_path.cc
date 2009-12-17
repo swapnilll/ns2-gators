@@ -22,6 +22,8 @@ This source was created to use with NS-2.
 #include <aorglu/aorglu_path.h>
 #include <aorglu/aorglu.h>
 
+#define DEBUG
+
 
 aorglu_path::aorglu_path()
 {
@@ -38,7 +40,7 @@ aorglu_path::~aorglu_path()
   while((pe=pathhead.lh_first)) {
  	LIST_REMOVE(pe, path_link);
 	#ifdef DEBUG
-	fprintf(stderr,"~Depeting path node %d\n", pe->id);
+	fprintf(stderr,"~Deleting path node %d\n", pe->id);
         #endif
  	delete pe;
   }
@@ -73,8 +75,11 @@ aorglu_path::path_lookup(nsaddr_t id)
   fprintf(stderr, "path_lookup: Looking up address.\n");
   #endif
 
+  assert(pe);
+
   for(;pe;pe = pe->path_link.le_next) {
-	if(pe->id == id)
+      fprintf(stderr, "PathLookup: Looking at %d\n", pe->id);
+      if(pe->id == id)
 	  return true;
   }
 
@@ -90,6 +95,8 @@ aorglu_path::path_delete(nsaddr_t id)
   #ifdef DEBUG
   fprintf(stderr, "path_delete() Depeting list entry!\n");
   #endif
+
+  assert(pe);
 
   for(;pe;pe=pe->path_link.le_next) {
      if(pe->id == id){

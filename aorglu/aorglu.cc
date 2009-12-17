@@ -1617,8 +1617,7 @@ AORGLU::recvRepa(Packet *p)
 	rpr2->rpr_greedy = 0;	
 	rpr->rpr_dir = 0;
 	rpr2->rpr_dir = 1;
-	aorglu_path newPath = aorglu_path();
-	rpr2->path = &newPath;
+	rpr2->path = new aorglu_path();
 //TEST
 	//rpr->path->path_add(1,5.0,1.0,0.0);
         //fprintf(stderr,"P1_pathlen:%d, P2_pathlen:%d\n",rpr->path->length(),rpr2->path->length());
@@ -1685,6 +1684,7 @@ AORGLU::forwardRepc(Packet *p)
     packet to a REPA and send using forwardRepa(). Note: We know that 
     we are out of the local maximum if greedy search returns a node
     that is not the current node and that is not already in our path list*/
+
   if((gnexthopid != index) && (!rpr->path->path_lookup(gnexthopid)) && (gnexthopid != ch->prev_hop_)){ //TODO:path_lookup is causing a seg-fault
     //conversion to REPA done in forwardRepa()
     fprintf(stderr, "Node %d: REPC being converted to REPA to send to %d!\n", index,rpr->rpr_dst);

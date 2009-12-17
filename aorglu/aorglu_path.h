@@ -37,6 +37,7 @@ This source was created to use with NS-2.
 class aorglu_path_entry {
         friend class AORGLU;
 	friend class aorglu_path;
+        friend class aorglu_loctable;
  public:
 	//aorglu_path_entry();
 	//~aorglu_path_entry();
