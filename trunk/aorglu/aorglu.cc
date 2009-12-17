@@ -556,6 +556,12 @@ aorglu_rt_entry *rt;
    forward(rt, p, NO_DELAY);
  }
  /*
+  *	A repair is in progress. Buffer the packet. 
+  */
+ else if (rt->rt_flags == RTF_IN_REPAIR) {
+   rqueue.enque(p);
+ }
+ /*
   *  if I am the source of the packet, then do a Route Request.
   */
  else if(ih->saddr() == index) {
@@ -563,13 +569,6 @@ aorglu_rt_entry *rt;
    sendRequest(rt->rt_dst);
    _DEBUG( "Sending RREQ #%d from %d to %d due to rt_resolve\n", route_request,index, ih->daddr());
  }
- /*
-  *	A repair is in progress. Buffer the packet. 
-  */
- else if (rt->rt_flags == RTF_IN_REPAIR) {
-   rqueue.enque(p);
- }
-
  /*
   * I am trying to forward a packet for someone else to which
   * I don't have a route.
@@ -1540,7 +1539,7 @@ AORGLU::sendRepa(nsaddr_t ipdst, nsaddr_t nexthop)
  rpr->rpr_src = index;
  rpr->rpr_timestamp = CURRENT_TIME;
  rpr->path = new aorglu_path();
- seqno += 2;
+ //seqno += 2;
  rpr->rpr_src_seqno = seqno;
  rpr->rpr_hop_count = 1;
 
@@ -1640,18 +1639,18 @@ AORGLU::recvRepa(Packet *p)
   if(rpr->rpr_dst  == index) {
     /*If so, prepare to send the RREP packet*/
     _DEBUG( "REPA successfully received by %d, sending RREP\n", index);
-
-  /*Forwarding nodes update their sequence */
+ 
+  /*Forwarding nodes update their sequence */   
   seqno = max(seqno, rpr->rpr_dst_seqno)+1;
   if(seqno%2) seqno++;
- 
-    sendReply(rpr->rpr_src,           // IP Destination
-              1,                      // Hop Count
-              index,                  // Dest IP Address (csh - index is the addr of the current node)
-              seqno,                  // Dest Sequence Num
-              MY_ROUTE_TIMEOUT,       // Lifetime
-              rpr->rpr_timestamp);      // timestamp
-   
+  
+  sendReply(rpr->rpr_src,           // IP Destination
+            1,                      // Hop Count
+            index,                  // Dest IP Address (csh - index is the addr of the current node)
+            seqno,                  // Dest Sequence Num
+            MY_ROUTE_TIMEOUT,       // Lifetime
+            rpr->rpr_timestamp);      // timestamp
+
    delete rpr->path; //Delete path object.
    Packet::free(p); //Delete the old packet.
    }
@@ -1765,7 +1764,7 @@ AORGLU::forwardRepc(Packet *p)
      // Reset the soft state and 
      // Set expiry time to CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT
      // This is because route is used in the forward direction,
-     // but only sources get benefited by this change
+     // but only sources get benef2ited by this change
        rt0->rt_req_cnt = 0;
        rt0->rt_req_timeout = 0.0; 
        rt0->rt_req_last_ttl = rpr->rpr_hop_count;
