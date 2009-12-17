@@ -83,8 +83,8 @@ class AORGLU;
 #define REV_ROUTE_LIFE          6				// 5  seconds
 #define BCAST_ID_SAVE           6				// 3 seconds
 
-#define REPA_RETX_TIME          1.5
-#define LOC_EXP_TIME            4
+#define REPA_RETX_TIME          1
+#define LOC_EXP_TIME            2 
 
 /*RGK - LOC_CACHE_EXP Time (How long a cache entry lives. 0 disables)*/
 #define LOC_CACHE_EXP -1 
