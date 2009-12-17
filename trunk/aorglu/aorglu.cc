@@ -638,6 +638,7 @@ Packet *p;
      assert (rt->rt_seqno%2);
      /*Mark the route as DOWN unless it is in the process of being repaired*/
      if(rt->rt_flags != RTF_IN_REPAIR){
+        _DEBUG("Node %d: Setting route to node %d down!\n", index, rt->rt_dst);
         rt_down(rt);
      }
    }
@@ -1020,6 +1021,7 @@ if(ih->daddr() == index || suppress_reply) {
  // Find the rt entry
 aorglu_rt_entry *rt0 = rtable.rt_lookup(ih->daddr());
    // If the rt is up, forward
+
    if(rt0 && (rt0->rt_hops != INFINITY2)) {
         assert (rt0->rt_flags == RTF_UP);
      rp->rp_hop_count += 1;
@@ -1672,6 +1674,62 @@ AORGLU::forwardRepc(Packet *p)
   nsaddr_t nexthopid;
   nsaddr_t gnexthopid = loctable.greedy_next_node(rpr->rpr_x, rpr->rpr_y, rpr->rpr_z);
 
+ /* We are either going to forward the REPAIR or generate a
+  * REPLY. Before we do anything, we make sure that the REVERSE
+  * route is in the route table.
+  */
+   aorglu_rt_entry *rt0; // rt0 is the reverse route 
+   
+   rt0 = rtable.rt_lookup(rpr->rpr_src);
+   _DEBUG( "Node %d adding reverse entry for node %d\n", index, rpr->rpr_src);
+   
+   if(rt0 == 0) { /* if not in the route table */
+   // create an entry for the reverse route.
+     rt0 = rtable.rt_add(rpr->rpr_src);
+   }
+ 
+   rt0->rt_expire = max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE));
+
+   _DEBUG("Node %d: RecvRepa ch->prev_hop_=%d\n", index, ch->prev_hop_);
+
+   if ( (rpr->rpr_src_seqno > rt0->rt_seqno ) ||
+    	((rpr->rpr_src_seqno == rt0->rt_seqno) && 
+	 (rpr->rpr_hop_count < rt0->rt_hops)) ) {
+   // If we have a fresher seq no. or lesser #hops for the 
+   // same seq no., update the rt entry. Else don't bother.
+
+   rt_update(rt0, rpr->rpr_src_seqno, rpr->rpr_hop_count, ch->prev_hop_,
+     	       max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE)) );
+
+     if (rt0->rt_req_timeout > 0.0) {
+     // Reset the soft state and 
+     // Set expiry time to CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT
+     // This is because route is used in the forward direction,
+     // but only sources get benefited by this change
+       rt0->rt_req_cnt = 0;
+       rt0->rt_req_timeout = 0.0; 
+       rt0->rt_req_last_ttl = rpr->rpr_hop_count;
+       rt0->rt_expire = CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT;
+     }
+
+     /* Find out whether any buffered packet can benefit from the 
+      * reverse route.
+      * May need some change in the following code - Mahesh 09/11/99
+      */
+     assert (rt0->rt_flags == RTF_UP);
+     Packet *buffered_pkt;
+     while ((buffered_pkt = rqueue.deque(rt0->rt_dst))) {
+       if (rt0 && (rt0->rt_flags == RTF_UP)) {
+	assert(rt0->rt_hops != INFINITY2);
+         forward(rt0, buffered_pkt, NO_DELAY);
+       }
+     }
+   } 
+   else {
+     _DEBUG( "Node %d reverse route to node %d NOT updated.\n", index, rpr->rpr_src);
+   }
+   // End for putting reverse route in rt table
+
   /*If we are no longer at a local maximum, then convert the REPC
     packet to a REPA and send using forwardRepa(). Note: We know that 
     we are out of the local maximum if greedy search returns a node
@@ -1706,16 +1764,16 @@ AORGLU::forwardRepc(Packet *p)
       on value in REPC packet header)*/
     if(rpr->rpr_dir == 0){
       /*clockwise*/
-      fprintf(stderr, "Node %d: looking up RHR next node.\n",index);
+      _DEBUG( "Node %d: looking up RHR next node.\n",index);
       nexthopid = loctable.right_hand_node(tx,ty,tz,rpr->path);
-      fprintf(stderr, "Node %d: RHR Result: %d\n",index,nexthopid);
+      _DEBUG( "Node %d: RHR Result: %d\n",index,nexthopid);
       
     }
     else{ 
       /*counterclockwise*/
-      fprintf(stderr, "Node %d: looking up LHR next node.\n",index);
+      _DEBUG( "Node %d: looking up LHR next node.\n",index);
       nexthopid = loctable.left_hand_node(tx,ty,tz,rpr->path);
-      fprintf(stderr, "Node %d: LHR Result: %d\n",index,nexthopid);
+      _DEBUG( "Node %d: LHR Result: %d\n",index,nexthopid);
     }
 
     if(nexthopid == index){
@@ -1743,7 +1801,7 @@ AORGLU::forwardRepc(Packet *p)
 
     //Send the packet
     Scheduler::instance().schedule(target_, p, 0.);
-    _DEBUG( "Node %d: Forwarding REPC packet to %d!", index, nexthopid);
+    _DEBUG( "Node %d: Forwarding REPC packet to %d!\n", index, nexthopid);
     (rpr->rpr_dir==0) ? _DEBUG("(clockwise)\n") : _DEBUG("(ccwise)\n");
   }
   
@@ -1930,6 +1988,7 @@ AORGLU::handle_link_failure(nsaddr_t id)
      assert (rt->rt_flags == RTF_UP);
      assert((rt->rt_seqno%2) == 0);
      rt->rt_seqno++;
+     _DEBUG("Removing a route from list\n");
      rt_down(rt);
    }
    // remove the lost neighbor from all the precursor lists
