@@ -1685,7 +1685,7 @@ AORGLU::forwardRepc(Packet *p)
     we are out of the local maximum if greedy search returns a node
     that is not the current node and that is not already in our path list*/
 
-  if((gnexthopid != index) && (!rpr->path->path_lookup(gnexthopid)) && (gnexthopid != ch->prev_hop_)){ //TODO:path_lookup is causing a seg-fault
+  if((gnexthopid != index) && (!rpr->path->path_lookup(gnexthopid)) && (gnexthopid != ch->prev_hop_)){
     //conversion to REPA done in forwardRepa()
     fprintf(stderr, "Node %d: REPC being converted to REPA to send to %d!\n", index,rpr->rpr_dst);
     forwardRepa(p,gnexthopid);
@@ -1693,17 +1693,16 @@ AORGLU::forwardRepc(Packet *p)
   /*Otherwise, we are still at a local maximum*/
   else{
     aorglu_loc_entry *le = loctable.loc_lookup(ch->prev_hop_);
-    fprintf(stderr,"Path Length = %d\n",rpr->path->length());
     if(rpr->path->length() == 0){
-      //This is an initial REPC, so use DST coordinates
+      //This is an initial REPC, so use DST coordinates for RH/LH search
       tx=rpr->rpr_x; ty=rpr->rpr_y; tz=rpr->rpr_z;
     }
     else{
-      //This is a forwarded REPC, so use prev_hop coordinates
+      //This is a forwarded REPC, so use prev_hop coordinates for RH/LH search
       tx=le->X_; ty=le->Y_; tz=le->Z_;
     }
 
-    /*Add previouse node to beginning of the path list and continue
+    /*Add previous node to beginning of the path list and continue
       sending REPC using CW or CCW as specified in the packet header*/
     rpr->path->path_add(ch->prev_hop_, le->X_, le->Y_, le->Z_);
     rpr->path->print();
@@ -1712,17 +1711,19 @@ AORGLU::forwardRepc(Packet *p)
       on value in REPC packet header)*/
     if(rpr->rpr_dir == 0){
       /*clockwise*/
-      nexthopid = loctable.right_hand_node(tx,ty,tz);
+      nexthopid = loctable.right_hand_node(tx,ty,tz,rpr->path);
     }
     else{ 
       /*counterclockwise*/
-      nexthopid = loctable.left_hand_node(tx,ty,tz);
+      nexthopid = loctable.left_hand_node(tx,ty,tz,rpr->path);
     }
 
     if(nexthopid == index){
+      fprintf(stderr, "Deleting the path function since %d == %d\n", nexthopid, index);
       //There is no possible path so drop the REPC packet
       delete rpr->path;
       Packet::free(p);
+      return;
     }
 
     //Update REPC Packet header info
