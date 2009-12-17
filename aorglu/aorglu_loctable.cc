@@ -108,9 +108,11 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
     
     /*Only include the neighbor IF we know the location*/
     if(le) {
-      if(!valid_location(le, path)) {
-        _DEBUG( "INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
-        continue;
+      if(path->length() > 0) {
+        if(!valid_location(le, path)) {
+          _DEBUG( "INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
+          continue;
+        }
       }
 
       a = DISTANCE(myX, myY, 0, X_, Y_, 0);
@@ -178,9 +180,11 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_, aorglu_path *p
     
     /*Only include the neighbor IF we know the location*/
     if(le) {
-      if(!valid_location(le, path)) {
-        _DEBUG( "INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
-        continue;
+      if(path->length() > 0) {
+        if(!valid_location(le, path)) {
+          _DEBUG( "INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
+          continue;
+        }
       }
 
       a = DISTANCE(myX, myY, 0, X_, Y_, 0);
