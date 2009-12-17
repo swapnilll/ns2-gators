@@ -26,7 +26,7 @@ AORGLUDebugger debugger;
 
 AORGLUDebugger::AORGLUDebugger()
 {
- fprintf(stderr, "%7s | %25s | %20s | %10s | %5s\n","TIME","FILE","FUNCTION","LINE","MESSAGE");
+ fprintf(stderr, "%7s | %25s | %25s | %10s | %5s\n","TIME","FILE","FUNCTION","LINE","MESSAGE");
  fprintf(stderr, "=====================================================================================\n");
 }
 
@@ -39,7 +39,7 @@ void
 AORGLUDebugger::debug(const char file[],const char fn[],const int line, const char format[], ...)
 {
   va_list ap;
-  fprintf(stderr, "%-7.3lf | %25s | %10s | %5d | ",CURRENT_TIME, file, fn, line);
+  fprintf(stderr, "%-7.3lf | %25s | %25s | %5d | ",CURRENT_TIME, file, fn, line);
 
   va_start(ap, format);
   vfprintf(stderr, format, ap);

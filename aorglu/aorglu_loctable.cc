@@ -109,7 +109,7 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
     /*Only include the neighbor IF we know the location*/
     if(le) {
       if(!valid_location(le, path)) {
-        fprintf(stderr, "INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
+        _DEBUG( "INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
         continue;
       }
 
@@ -179,7 +179,7 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_, aorglu_path *p
     /*Only include the neighbor IF we know the location*/
     if(le) {
       if(!valid_location(le, path)) {
-        fprintf(stderr, "INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
+        _DEBUG( "INVALID EDGE DETECTED ON NODE %d, skipping.\n", le->id);
         continue;
       }
 
@@ -215,7 +215,7 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_, aorglu_path *p
 bool
 aorglu_loctable::valid_location(aorglu_loc_entry *le, aorglu_path *path)
 {
-   fprintf(stderr, "Entering valid_location function\n");
+   _DEBUG( "Entering valid_location function\n");
    path->print();
    aorglu_path_entry *pe, *npe;
    
@@ -233,16 +233,16 @@ aorglu_loctable::valid_location(aorglu_loc_entry *le, aorglu_path *path)
 
    /*Iterate over the path entry list*/
    pe=path->head();
-   fprintf(stderr,"Node: %d, testing => LocationEl: %d.  Path Element #1: %d\n",index,le->id, pe->id);
+   _DEBUG("Node: %d, testing => LocationEl: %d.  Path Element #1: %d\n",index,le->id, pe->id);
    for(;pe;pe = pe->path_link.le_next) {
       /*Can't go back to a node that's already in the list*/
       if(le->id == pe->id){
-         fprintf(stderr, "INVALID PATH: CURRENT NODE IS ALREADY IN PATH!\n");
+         _DEBUG( "INVALID PATH: CURRENT NODE IS ALREADY IN PATH!\n");
          return false;
       }
       /*Don't want to go to a node that has the same location as a node in the list*/
       if(((le->X_ == pe->X_) && (le->Y_ == pe->Y_) && (le->Z_ == pe->Z_))) {
-        fprintf(stderr, "INVALID PATH: CURRENT NODE IS AT SAME LOCATION AS NODE IN PATH.\n");
+        _DEBUG( "INVALID PATH: CURRENT NODE IS AT SAME LOCATION AS NODE IN PATH.\n");
         return false; 
       }
     }
@@ -267,14 +267,14 @@ aorglu_loctable::valid_location(aorglu_loc_entry *le, aorglu_path *path)
       v = 0.5 * ( (dCX*dCX + dBC*dBC - dBX*dBX)/(dCX*dBC) ); 
       aBeta = acos(v); 
       
-      fprintf(stderr, "Node A = (%.2lf, %.2lf)\n", npe->X_, npe->Y_);
-      fprintf(stderr, "Node B = (%.2lf, %.2lf)\n", pe->X_, pe->Y_);
-      fprintf(stderr, "Node C = (%.2lf, %.2lf)\n", myX, myY);
-      fprintf(stderr, "Node X = (%.2lf, %.2lf)\n", le->X_, le->Y_);
+      _DEBUG( "Node A = (%.2lf, %.2lf)\n", npe->X_, npe->Y_);
+      _DEBUG( "Node B = (%.2lf, %.2lf)\n", pe->X_, pe->Y_);
+      _DEBUG( "Node C = (%.2lf, %.2lf)\n", myX, myY);
+      _DEBUG( "Node X = (%.2lf, %.2lf)\n", le->X_, le->Y_);
 
-      fprintf(stderr, "dCX = %lf ; dBC = %lf ; dBX = %lf ; v= %lf\n", dCX, dBC, dBX, v);
+      _DEBUG( "dCX = %lf ; dBC = %lf ; dBX = %lf ; v= %lf\n", dCX, dBC, dBX, v);
 
-      fprintf(stderr, "-->alpha= %lf beta = %lf\n", aAlpha, aBeta);
+      _DEBUG( "-->alpha= %lf beta = %lf\n", aAlpha, aBeta);
  
 
       /*Check the relative location of the node WRT the line BC*/
@@ -296,16 +296,16 @@ aorglu_loctable::valid_location(aorglu_loc_entry *le, aorglu_path *path)
        mDy = (pe->Y_-npe->Y_)/(pe->X_-npe->X_); /*Calculate the slope*/
  
        if((mDy*(pe->X_-myX)+(myY-pe->Y_)) >= 0) { /*Current node is in the RHP*/
-             fprintf(stderr, "--Current node detected in RHP\n");
+             _DEBUG( "--Current node detected in RHP\n");
              if((mDy*(pe->X_-le->X_)+(le->Y_-pe->Y_)) <= 0) { /*Check if the other node is in the LHP*/
-                fprintf(stderr, "INVALID EDGE: CROSS EDGE DETECTED\n");
+                _DEBUG( "INVALID EDGE: CROSS EDGE DETECTED\n");
                 return false; 
              }
        }
        else { /*Current node is in the LHP*/
-            fprintf(stderr, "--Current node detected in LHP\n");
+            _DEBUG( "--Current node detected in LHP\n");
             if((mDy*(pe->X_-le->X_)+(le->Y_-pe->Y_)) > 0) { /*Check if the other node is in the RHP*/
-                fprintf(stderr, "INVALID EDGE: CROSS EDGE DETECTED\n");
+                _DEBUG( "INVALID EDGE: CROSS EDGE DETECTED\n");
                 return false; 
             }
        }
