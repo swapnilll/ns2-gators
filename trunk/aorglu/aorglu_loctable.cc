@@ -87,7 +87,7 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
 
   /*Initially set the min-addr to the sending node*/
   nsaddr_t addr = ((AORGLU*)agent)->index;
-  mAngle = 0;//((double)((int)(1000.0*2*PI)));
+  mAngle = 0;//((double)((int)(1000.0*2*PI))); TODO: Double check this!
 
   /*Get My Coordinates*/
   mn = (MobileNode*)Node::get_node_by_address(addr);
@@ -142,13 +142,13 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
          } 
       }
 
-      cAngle = ((double)((int)(1000.0*cAngle))); 
+      cAngle = ((double)((int)(1000.0*cAngle))); //This is done to prevent comparison errors of idential coordinates.
 
       _DEBUG("current distance=%lf\n",DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_));    
       _DEBUG("LHR angle between %d and %d => %lf\n",((AORGLU*)agent)->index,le->id,cAngle/1000.0);   
  
       /*Check for the left-hand node condition*/
-      if( cAngle > mAngle || ((cAngle == mAngle) && (cDistance > DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_)))) {
+      if( cAngle > mAngle || ((cAngle == mAngle) && (cDistance > DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_)))) { //TODO: Double check this!
          _DEBUG("LHR found larger angle between %d and %d => %lf\n",((AORGLU*)agent)->index,le->id,cAngle/1000.0);
          mAngle = cAngle;
          cDistance = DISTANCE(myX, myY, myZ, le->X_, le->Y_, le->Z_);
