@@ -559,6 +559,7 @@ aorglu_rt_entry *rt;
   *	A repair is in progress. Buffer the packet. 
   */
  else if (rt->rt_flags == RTF_IN_REPAIR) {
+   _DEBUG("RT in repair; Queueing up packets\n");
    rqueue.enque(p);
  }
  /*
@@ -1077,6 +1078,7 @@ AORGLU::recvError(Packet *p)
     rfe1 = new RouteFailEvent(rt);
     Scheduler::instance().schedule(&reparetxtimer,rfe1, REPA_RETX_TIME);
 
+    seqno+=2; /*Need to increase seqno when first starting route maintenance*/
     init_route_maintenance(rt,le);
 
    }
@@ -1138,7 +1140,7 @@ AORGLU::init_route_maintenance(aorglu_rt_entry *rt, aorglu_loc_entry *le)
      rpr->rpr_src = index;
      rpr->rpr_timestamp = CURRENT_TIME;
      rpr->path = new aorglu_path();
-     seqno += 2;
+     //seqno += 2; Do this from the calling function -RGK
      rpr->rpr_src_seqno = seqno;
      rpr->rpr_hop_count = 1;
 
@@ -1574,6 +1576,8 @@ AORGLU::recvRepa(Packet *p)
   struct hdr_cmn *ch = HDR_CMN(p);
   struct hdr_aorglu_repa *rpr = HDR_AORGLU_REPA(p);
 
+  bool shouldReply = false;
+
   nsaddr_t nexthopid;
 
   _DEBUG( "Node %d: Recieved Repa packet!\n", index);
@@ -1599,6 +1603,10 @@ AORGLU::recvRepa(Packet *p)
    if ( (rpr->rpr_src_seqno > rt0->rt_seqno ) ||
     	((rpr->rpr_src_seqno == rt0->rt_seqno) && 
 	 (rpr->rpr_hop_count < rt0->rt_hops)) ) {
+
+    _DEBUG("Node %d detected a fresher route to node %d SEQ# %d\n", index, rpr->rpr_src, rpr->rpr_src_seqno);
+    shouldReply = true;
+
    // If we have a fresher seq no. or lesser #hops for the 
    // same seq no., update the rt entry. Else don't bother.
 
@@ -1643,13 +1651,18 @@ AORGLU::recvRepa(Packet *p)
   /*Forwarding nodes update their sequence */   
   seqno = max(seqno, rpr->rpr_dst_seqno)+1;
   if(seqno%2) seqno++;
-  
-  sendReply(rpr->rpr_src,           // IP Destination
-            1,                      // Hop Count
-            index,                  // Dest IP Address (csh - index is the addr of the current node)
-            seqno,                  // Dest Sequence Num
-            MY_ROUTE_TIMEOUT,       // Lifetime
-            rpr->rpr_timestamp);      // timestamp
+
+  if(shouldReply) {
+    sendReply(rpr->rpr_src,           // IP Destination
+              1,                      // Hop Count
+              index,                  // Dest IP Address (csh - index is the addr of the current node)
+              seqno,                  // Dest Sequence Num
+              MY_ROUTE_TIMEOUT,       // Lifetime
+              rpr->rpr_timestamp);      // timestamp
+  }
+  else {
+    _DEBUG("Node %d: No reply sent, since the REPA was older than the route!\n");
+  }
 
    delete rpr->path; //Delete path object.
    Packet::free(p); //Delete the old packet.
@@ -1972,23 +1985,24 @@ struct hdr_ip *ih = HDR_IP(p); //csh - uncommented ip header to allow access to 
 struct hdr_aorglu_reply *rp = HDR_AORGLU_REPLY(p);
 AORGLU_Neighbor *nb;
 
+   //_DEBUG("Node %d: RecvHello from node %d\n",index,rp->rp_dst);
+   //_DEBUG( "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
+
  nb = nb_lookup(rp->rp_dst);
  if(nb == 0) {
    nb_insert(rp->rp_dst);
  }
  else {
    nb->nb_expire = CURRENT_TIME +
-                   (1.5 * ALLOWED_HELLO_LOSS * HELLO_INTERVAL);
+                   (2.5 * ALLOWED_HELLO_LOSS * HELLO_INTERVAL);
+   //_DEBUG( "The expire time to %d is %lf\n", rp->rp_dst, nb->nb_expire);
+   
  }
 
    /*RGK - Add a location table entry*/
    /*12/09/09 - Appears to work as intended!*/
    loctable.loc_add(ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
 
-   //csh - print out coordinates when reply is received
-   //_DEBUG( "recvHello:\n");
-   //_DEBUG( "The current node address is %d\n", index);
-   //_DEBUG( "Node %d coordinates: (%.2lf, %.2lf, %.2lf)\n", ih->saddr(), rp->rp_x, rp->rp_y, rp->rp_z);
    #ifdef DEBUG
    //loctable.print(); /*Print out the formatted location table*/
    #endif
@@ -2027,22 +2041,22 @@ void
 AORGLU::nb_delete(nsaddr_t id) {
 AORGLU_Neighbor *nb = nbhead.lh_first;
 
- log_link_del(id);
- seqno += 2;     // Set of neighbors changed
- assert ((seqno%2) == 0);
+  log_link_del(id);
+  seqno += 2;     // Set of neighbors changed
+  assert ((seqno%2) == 0);
 
- for(; nb; nb = nb->nb_link.le_next) {
-   if(nb->nb_addr == id) {
-     LIST_REMOVE(nb,nb_link);
-     delete nb;
-     break;
-   }
- }
+  for(; nb; nb = nb->nb_link.le_next) {
+    if(nb->nb_addr == id) {
+      LIST_REMOVE(nb,nb_link);
+      delete nb;
+    break;
+    }
+  }
 
- /*Delete any route for which there is no longer a 
-   next-hop neighbor*/
- handle_link_failure(id);
-
+  /*Delete any route for which there is no longer a 
+    next-hop neighbor*/
+   _DEBUG("Node %d: Link to neighbor node %d TIMED OUT! Removing all routes through that node.\n", index, id);
+   handle_link_failure(id);
 }
 
 
@@ -2058,14 +2072,13 @@ AORGLU::handle_link_failure(nsaddr_t id)
      assert (rt->rt_flags == RTF_UP);
      assert((rt->rt_seqno%2) == 0);
      rt->rt_seqno++;
-     _DEBUG("Removing a route from list\n");
+     _DEBUG("Node %d: Removing route to %d from the list.\n", index, rt->rt_dst);
      rt_down(rt);
    }
    // remove the lost neighbor from all the precursor lists
    rt->pc_delete(id);
  }   
 }
-
 
 
 /*
@@ -2081,6 +2094,7 @@ double now = CURRENT_TIME;
  for(; nb; nb = nbn) {
    nbn = nb->nb_link.le_next;
    if(nb->nb_expire <= now) {
+     _DEBUG("Node %d: Calling nb_delete on %d from nb_purge\n",index,nb->nb_addr);
      nb_delete(nb->nb_addr);
    }
  }
