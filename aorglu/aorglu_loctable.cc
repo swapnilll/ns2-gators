@@ -81,7 +81,7 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
   aorglu_loc_entry *le;
   MobileNode *mn;
 
-  double mDy, mAngle, cAngle;
+  double mDy, mAngle, cAngle, cDistance;
   double myX, myY, myZ;
   double a,b,c,v; /*used in law of cosines*/
 
@@ -103,6 +103,8 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
   nb = ((AORGLU*)agent)->nbhead.lh_first;
   assert(nb);
   
+  cDistance = DBL_MAX;
+
   if(X_ == myX)
     mDy = DBL_MAX;
   else
@@ -140,10 +142,14 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
          } 
       }
 
-      
+      cAngle = ((double)((int)(1000.0*cAngle))); 
+
+      _DEBUG("current distance=%lf\n",DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_));       
+ 
       /*Check for the left-hand node condition*/
-      if( cAngle <= mAngle ) {
+      if( cAngle < mAngle || ((cAngle == mAngle) && (cDistance > DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_)))) {
          mAngle = cAngle;
+         cDistance = DISTANCE(myX, myY, myZ, le->X_, le->Y_, le->Z_);
          addr = nb->nb_addr;
        }
     }   
@@ -158,7 +164,7 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_, aorglu_path *p
   aorglu_loc_entry *le;
   MobileNode *mn;
 
-  double mDy, mAngle, cAngle;
+  double mDy, mAngle, cAngle, cDistance;
   double myX, myY, myZ;
   double a,b,c,v; /*used in law of cosines*/
 
@@ -177,6 +183,8 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_, aorglu_path *p
   /*Get agent neighbor list*/
   nb = ((AORGLU*)agent)->nbhead.lh_first;
   assert(nb);
+
+  cDistance = DBL_MAX;
 
   if(X_ == myX)
     mDy = DBL_MAX;
@@ -214,10 +222,13 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_, aorglu_path *p
                 cAngle = 2*PI - cAngle;
          } 
       }
+
+      cAngle = ((double)((int)(1000.0*cAngle))); 
       
       /*Check for the right-hand node condition*/
-      if( cAngle >= mAngle ) {
+      if( cAngle > mAngle || ((cAngle == mAngle) && (cDistance > DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_)))) {
          mAngle = cAngle;
+         cDistance = DISTANCE(myX, myY, myZ, le->X_, le->Y_, le->Z_);
          addr = nb->nb_addr;
        }
     }   
