@@ -87,7 +87,7 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
 
   /*Initially set the min-addr to the sending node*/
   nsaddr_t addr = ((AORGLU*)agent)->index;
-  mAngle = 2*PI;
+  mAngle = 0;//((double)((int)(1000.0*2*PI)));
 
   /*Get My Coordinates*/
   mn = (MobileNode*)Node::get_node_by_address(addr);
@@ -144,10 +144,12 @@ aorglu_loctable::left_hand_node(double X_, double Y_, double Z_, aorglu_path *pa
 
       cAngle = ((double)((int)(1000.0*cAngle))); 
 
-      _DEBUG("current distance=%lf\n",DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_));       
+      _DEBUG("current distance=%lf\n",DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_));    
+      _DEBUG("LHR angle between %d and %d => %lf\n",((AORGLU*)agent)->index,le->id,cAngle/1000.0);   
  
       /*Check for the left-hand node condition*/
-      if( cAngle < mAngle || ((cAngle == mAngle) && (cDistance > DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_)))) {
+      if( cAngle > mAngle || ((cAngle == mAngle) && (cDistance > DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_)))) {
+         _DEBUG("LHR found larger angle between %d and %d => %lf\n",((AORGLU*)agent)->index,le->id,cAngle/1000.0);
          mAngle = cAngle;
          cDistance = DISTANCE(myX, myY, myZ, le->X_, le->Y_, le->Z_);
          addr = nb->nb_addr;
@@ -224,10 +226,12 @@ aorglu_loctable::right_hand_node(double X_, double Y_, double Z_, aorglu_path *p
       }
 
       cAngle = ((double)((int)(1000.0*cAngle))); 
+      _DEBUG("RHR angle between %d and %d => %lf\n",((AORGLU*)agent)->index,le->id,cAngle/1000.0);
       
       /*Check for the right-hand node condition*/
       if( cAngle > mAngle || ((cAngle == mAngle) && (cDistance > DISTANCE(myX, myY, myZ,le->X_, le->Y_, le->Z_)))) {
          mAngle = cAngle;
+         _DEBUG("RHR found larger angle between %d and %d => %lf\n",((AORGLU*)agent)->index,le->id,cAngle/1000.0);
          cDistance = DISTANCE(myX, myY, myZ, le->X_, le->Y_, le->Z_);
          addr = nb->nb_addr;
        }
@@ -340,7 +344,7 @@ aorglu_loctable::valid_location(aorglu_loc_entry *le, aorglu_path *path)
      }
       pe = npe;
    }
-   
+
    return true; /*No edges crossed*/
 }
 
