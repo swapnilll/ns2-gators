@@ -1,3 +1,7 @@
+# The following code is modified from a template obtained at the web URL
+# http://mailman.isi.edu/pipermail/ns-users/2009-January/064404.html
+# The page was written by Mubashir Rehmani, and it was originally acessed by
+#    our group on Monday, December 7, 2009 at 8:20 PM.
 
 # Define options
 set val(chan)           Channel/WirelessChannel    ;# channel type

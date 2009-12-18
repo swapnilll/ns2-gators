@@ -1,3 +1,8 @@
+# The following code is modified from a template obtained at the web URL
+# http://mailman.isi.edu/pipermail/ns-users/2009-January/064404.html
+# The page was written by Mubashir Rehmani, and it was originally acessed by
+#    our group on Monday, December 7, 2009 at 8:20 PM.
+
 #### AORGLU Example #4 ##########################################################
 # This example tests the Route Repair functionality with no local maximums.
 #  N0 sends to N5 through 0->1->2->3->4->5. N4 then moves out of the path
